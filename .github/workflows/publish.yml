@@ -28,7 +28,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_BOOTSTRAP_TOKEN || secrets.GITHUB_TOKEN }}
 
       - id: metadata
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
@@ -45,3 +45,5 @@ jobs:
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
