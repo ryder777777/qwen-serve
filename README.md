@@ -12,21 +12,25 @@ Fastest validated recipe for running **Qwen/Qwen3.8-27B** (hybrid GDN vision-lan
 ## Quick start
 
 ```bash
+IMAGE='ghcr.io/0xsero/qwen38-3090-sglang@sha256:cc2bfc369c709c53d239ef2af41d4ae2530904975816bb2ca484188008586ac9'
+
 # 1× 3090 (default) — image input, up to 8k context
 docker run --gpus all --shm-size 32g -p 8000:8000 \
   -v $PWD/models:/models \
-  ghcr.io/0xsero/qwen38-3090-sglang:latest
+  "$IMAGE"
 
 # 2× 3090 — image + video, DSpark, up to 64k context
 docker run --gpus all --shm-size 32g -p 8000:8000 \
   -v $PWD/models:/models -e TP=2 \
-  ghcr.io/0xsero/qwen38-3090-sglang:latest
+  "$IMAGE"
 
 # 4× 3090 — image + video, DSpark, up to 128k context
 docker run --gpus all --shm-size 32g -p 8000:8000 \
   -v $PWD/models:/models -e TP=4 \
-  ghcr.io/0xsero/qwen38-3090-sglang:latest
+  "$IMAGE"
 ```
+
+The digest above is the public image built from source commit `55ab5b924c3d2176c65bf1132d6c2a5d51ab394e`. Pin the digest for reproducible launches; `:latest` is only a convenience tag.
 
 Weights (~23 GB target + 2.6 GB draft) download automatically into the mounted `/models` volume on first start. First boot takes ~5 min (kernel JIT compilation).
 
@@ -64,8 +68,8 @@ curl http://localhost:8000/v1/chat/completions \
 | triton | `3.7.1` | fixes `_grid_2` bug in 3.6 that broke GDN kernels |
 | flashinfer | `0.6.17` | attention backend for hybrid model; cccl version guard patched for nvcc 13.3 |
 | nvidia-cuda-nvcc | `13.3.73` (pip wheel) | JIT kernel compilation inside container |
-| base image | `ubuntu:24.04` | python 3.12, ffmpeg 6.x for torchcodec video |
-| uv | latest | fast package install |
+| base image | digest-pinned `ubuntu:24.04` | python 3.12, ffmpeg 6.x for torchcodec video |
+| uv | digest-pinned | fast package install |
 
 ## Validated presets per GPU count
 
