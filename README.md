@@ -7,7 +7,7 @@ Fastest validated recipe for running **Qwen/Qwen3.8-27B** (hybrid GDN vision-lan
 - **Target model**: [`cyankiwi/Qwen3.8-27B-AWQ-INT4`](https://huggingface.co/cyankiwi/Qwen3.8-27B-AWQ-INT4) — W4A16 INT4 quantization with Marlin kernels. FP8/NVFP4 have no fast compute path on Ampere (sm_86); INT4 cuts weight bandwidth ~4× → ~2× decode vs bf16.
 - **Speculative decoding**: [`RadixArk/Qwen3.8-27B-DSpark`](https://huggingface.co/RadixArk/Qwen3.8-27B-DSpark) — 1.36B DSpark draft model, accept length up to ~4 on coding/greedy content. Enabled by default on 2×/4× GPUs.
 - **Multimodal**: image input (all configs) and video input (2×/4× GPUs) via torchcodec + FFmpeg.
-- **Everything pinned**: the exact sglang commit, torch, triton, flashinfer, and CUDA nvcc versions are locked in the Dockerfile. Reproducible anywhere.
+- **Everything pinned**: the target and draft model revisions, base images, exact sglang commit, torch, triton, flashinfer, and CUDA nvcc versions are locked. A mounted model cache is trusted only after the entrypoint records the exact downloaded revision.
 
 ## Quick start
 
@@ -35,7 +35,7 @@ Use it:
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"default","messages":[{"role":"user","content":"hello /no_think"}],"max_tokens":100}'
+  -d '{"model":"default","messages":[{"role":"user","content":"hello /no_think"}]}'
 ```
 
 Image input:
@@ -43,7 +43,7 @@ Image input:
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"default","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}}]}],"max_tokens":100}'
+  -d '{"model":"default","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}}]}]}'
 ```
 
 ## Environment variables
@@ -86,7 +86,7 @@ curl http://localhost:8000/v1/chat/completions \
 
 ## Benchmark results
 
-All benchmarks run on RTX 3090 (Ampere sm_86), 24 GB VRAM per card, PCIe 3.0 ×16, no NVLink. Driver 610.x, CUDA 13 runtime. AWQ-INT4 target, DSpark draft (where enabled). Coding-flavored prompts (unique nonce per request to defeat radix cache), `temperature=0`, `max_tokens=256`, streaming with usage reporting.
+All benchmarks run on RTX 3090 (Ampere sm_86), 24 GB VRAM per card, PCIe 3.0 ×16, no NVLink. Driver 610.x, CUDA 13 runtime. AWQ-INT4 target, DSpark draft (where enabled). Coding-flavored prompts used a unique nonce to defeat radix cache, deterministic decoding, a 256-token measurement horizon, and streaming usage reporting. The serving recipe itself does not impose an output limit.
 
 - **TTFT**: time to first token (seconds) — lower is better
 - **Prefill**: tokens/s during prompt processing — higher is better

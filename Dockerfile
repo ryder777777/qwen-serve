@@ -1,6 +1,6 @@
 # Qwen3.8-27B (AWQ-INT4) + DSpark speculative decoding on RTX 3090s
 # Validated on 1x / 2x / 4x RTX 3090 (Ampere sm_86), driver 610.x, CUDA 13 runtime (pip wheels)
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517
 
 ENV DEBIAN_FRONTEND=noninteractive
 # python 3.12 (sglang requirement), build toolchain for JIT kernels, ffmpeg 6.x libs for torchcodec (video)
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /uvx /usr/local/bin/
 ENV UV_LINK_MODE=copy
 
 # sglang pinned to the exact commit validated for Qwen3.8-27B (hybrid GDN arch) + DSpark

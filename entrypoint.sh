@@ -1,13 +1,41 @@
 #!/bin/bash
 # Qwen3.8-27B AWQ-INT4 + DSpark on RTX 3090s (validated presets)
 # Env: TP (1|2|4, default 1), PORT (default 8000), DSPARK (1|0, default 1), MODELS_DIR (default /models)
-set -e
+set -euo pipefail
 TP=${TP:-1}
 PORT=${PORT:-8000}
 DSPARK=${DSPARK:-1}
 MODELS=${MODELS_DIR:-/models}
 AWQ=$MODELS/Qwen3.8-27B-AWQ-INT4
 DRAFT=$MODELS/Qwen3.8-27B-DSpark
+AWQ_REPO=cyankiwi/Qwen3.8-27B-AWQ-INT4
+AWQ_REVISION=63768c10df38c0395e12ef49edac1bd539eaeeea
+DRAFT_REPO=RadixArk/Qwen3.8-27B-DSpark
+DRAFT_REVISION=85ef153be924f17ce4bf62726954eeaa4a73e854
+
+download_pinned_model() {
+  local repository=$1
+  local revision=$2
+  local model_dir=$3
+  local required_file=$4
+  local revision_file="$model_dir/.inference-index-revision"
+  local expected_revision="$repository@$revision"
+
+  if [[ -f $required_file && -f $revision_file && $(<"$revision_file") == "$expected_revision" ]]; then
+    echo "[entrypoint] using pinned cache $expected_revision"
+    return
+  fi
+
+  echo "[entrypoint] downloading pinned model $expected_revision"
+  mkdir -p "$model_dir"
+  hf download "$repository" --revision "$revision" --local-dir "$model_dir"
+  [[ -f $required_file ]] || {
+    echo "[entrypoint] required model file is missing after download: $required_file" >&2
+    exit 1
+  }
+  printf '%s\n' "$expected_revision" >"$revision_file.tmp"
+  mv "$revision_file.tmp" "$revision_file"
+}
 
 # DSpark on TP1 leaves almost no KV cache (21.7 GB weights on 24 GB card) — auto-disable
 if [ "$TP" = "1" ] && [ "$DSPARK" = "1" ]; then
@@ -17,14 +45,10 @@ fi
 
 echo "[entrypoint] TP=$TP DSPARK=$DSPARK PORT=$PORT models=$MODELS"
 
-# --- download weights if missing (~23 GB target + 2.6 GB draft) ---
-if [ ! -f "$AWQ/model.safetensors.index.json" ]; then
-  echo "[entrypoint] downloading AWQ target (cyankiwi/Qwen3.8-27B-AWQ-INT4)…"
-  hf download cyankiwi/Qwen3.8-27B-AWQ-INT4 --local-dir "$AWQ"
-fi
-if [ "$DSPARK" = "1" ] && [ ! -f "$DRAFT/model.safetensors" ]; then
-  echo "[entrypoint] downloading DSpark draft (RadixArk/Qwen3.8-27B-DSpark)…"
-  hf download RadixArk/Qwen3.8-27B-DSpark --local-dir "$DRAFT"
+# --- download exact weight revisions if the pinned cache is absent ---
+download_pinned_model "$AWQ_REPO" "$AWQ_REVISION" "$AWQ" "$AWQ/model.safetensors.index.json"
+if [ "$DSPARK" = "1" ]; then
+  download_pinned_model "$DRAFT_REPO" "$DRAFT_REVISION" "$DRAFT" "$DRAFT/model.safetensors"
 fi
 
 # --- validated presets per GPU count ---
