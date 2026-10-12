@@ -12,10 +12,12 @@ cd ${0:A:h}
 mod=${1:-exl3_m1}
 export PATH=~/.local/bin:$PATH
 rm -f $mod.fatbin   # a failed nvcc run (e.g. colima stopped) must not leave the old fatbin looking fresh
+log=${TMPDIR:-/tmp}/nvcc-$mod.log
+# nvcc's exit status decides, not the display filter below
 perl -e 'alarm 1800; exec @ARGV' docker run --rm -v $HOME:$HOME -w $PWD strata-cuda:latest \
   $HOME/cuda-13.4/bin/nvcc -std=c++17 -O3 --fatbin -arch=sm_86 -no-compress -Xptxas -v -I torchstub --expt-relaxed-constexpr \
   "-DCUBLAS_STATUS_MAPPING_ERROR=((cublasStatus_t) 11)" "-DCUBLAS_STATUS_LICENSE_ERROR=((cublasStatus_t) 16)" \
-  -x cu $mod.cu -o $mod.fatbin 2>&1 | grep -E "error|warning|Compiling entry|Used [0-9]+ registers" | \
-  paste - - | grep -E "exl3_recon_k3_cb2|exl3_recon_had_k3_cb2|exl3_had_in|exl3_gemv_kernelILi3ELb0ELi2|exl3_gemm_kernelILi3ELb0ELb0ELi2|exl3_moe_coop|exl3_moe_kernel|exl3s_pf|error|warning" || true
+  -x cu $mod.cu -o $mod.fatbin > $log 2>&1 || { tail -30 $log; echo "nvcc failed for $mod (full log $log)"; exit 1; }
+grep -E "error|warning|Compiling entry|Used [0-9]+ registers" $log | paste - - | grep -E "exl3_recon_k3_cb2|exl3_recon_had_k3_cb2|exl3_had_in|exl3_gemv_kernelILi3ELb0ELi2|exl3_gemm_kernelILi3ELb0ELb0ELi2|exl3_moe_coop|exl3_moe_kernel|exl3s_pf|error|warning" || true
 ls -l $mod.fatbin
 shasum -a 256 $mod.fatbin

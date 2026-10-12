@@ -136,9 +136,11 @@ def fetcher(idx, l, q):
     q.put(None)
 
 
-def cmd_sync(layers):
-    import exl3_ref as ref
-    px.load_lib()
+def cmd_sync(layers, neon=True, expect=None):
+    ref = None
+    if neon:
+        import exl3_ref as ref
+        px.load_lib()
     idx = load_index()
     m = px.manifest()
     os.makedirs(px.PACK, exist_ok=True)
@@ -173,10 +175,10 @@ def cmd_sync(layers):
         os.fsync(fd)
         mm = np.memmap(px.BIN, np.uint8, "r")
         sec = mm[l * px.LAYER:(l + 1) * px.LAYER]
-        # the NEON tier on 4 sampled experts vs the f64 reference of the same fetched tensors
+        # the NEON tier on 4 sampled experts vs the f64 reference of the same fetched tensors (skipped with --no-neon: libexl3cpu is macOS-only)
         rng = np.random.default_rng([20261011, l, 3])
         fwd = []
-        for e in rng.choice(px.N_EXPERT, 4, replace=False).tolist():
+        for e in (rng.choice(px.N_EXPERT, 4, replace=False).tolist() if neon else []):
             be = px.BlobExpert(mm, l, e)
             W = {q: ref.weight_orig_f64(ref.reconstruct(be.f[f"{q}_trellis"], px.K, px.CB), be.f[f"{q}_suh"], be.f[f"{q}_svh"])
                  for q in ("gate", "up", "down")}
@@ -186,8 +188,9 @@ def cmd_sync(layers):
             y = (g / (1 + np.exp(-g)) * u) @ W["down"]
             fwd.append(float(np.sqrt(np.square(yh - y).mean() / np.square(y).mean())))
         sha = hashlib.sha256(sec).hexdigest()
-        ok = max(fwd) <= 5e-3 and len(mul_seen) == 1
-        print(f"layer {l}: {nb} experts, fetched {fetched / 1e9:.2f} GB, mul1 values {sorted(mul_seen)}, fwd rel rms max {max(fwd):.2e}, "
+        ref_sha = None if expect is None else json.load(open(expect))["layers"].get(str(l), {}).get("sha256")
+        ok = (not neon or max(fwd) <= 5e-3) and len(mul_seen) == 1 and (expect is None or sha == ref_sha)
+        print(f"layer {l}: {nb} experts, fetched {fetched / 1e9:.2f} GB, mul1 values {sorted(mul_seen)}, " + (f"fwd rel rms max {max(fwd):.2e}, " if neon else "no NEON forward check, ") +
               f"sha {sha[:16]}, {time.perf_counter() - t0:.1f} s -> {'ok' if ok else 'FAIL'}", flush=True)
         if not ok: raise SystemExit(f"layer {l}: verify failed")
         m["layers"][str(l)] = dict(sha256=sha, via=VIA, written=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
@@ -195,40 +198,70 @@ def cmd_sync(layers):
     os.close(fd)
 
 
-def cmd_verify(per_layer=4, layers=None):
+def cmd_verify(per_layer=4, layers=None, sha_only=False):
     """Independent re-fetch: per_layer random experts of every layer, one HTTP Range each, bytes == experts.bin; plus a whole-pack
-    sha256 vs the manifest for every layer."""
-    idx = load_index()
+    sha256 vs the manifest for every layer. sha_only skips the re-fetch (offline: only the section sha256 vs the manifest).
+    Returns the number of failures (0 = "VERIFY OK")."""
+    idx = None if sha_only else load_index()
     m = px.manifest()
     mm = np.memmap(px.BIN, np.uint8, "r")
     bad = 0
     for l in layers or range(px.N_LAYERS):
-        rng = np.random.default_rng([7, l])
-        for e in [0, px.N_EXPERT - 1] + rng.choice(px.N_EXPERT, per_layer, replace=False).tolist():
-            rec = idx[f"{l}.{e}"]
-            sh = rec["down_suh"][0]; a = min(v[1] for v in rec.values()); b = max(v[2] for v in rec.values())
-            blob, _ = expert_blob(rec, http_range(sh, a, b), a)
-            ok = bytes(mm[l * px.LAYER + e * px.BLOB:l * px.LAYER + (e + 1) * px.BLOB]) == blob
-            bad += not ok
-            if not ok: print(f"MISMATCH layer {l} expert {e}", flush=True)
+        if not sha_only:
+            rng = np.random.default_rng([7, l])
+            for e in [0, px.N_EXPERT - 1] + rng.choice(px.N_EXPERT, per_layer, replace=False).tolist():
+                rec = idx[f"{l}.{e}"]
+                sh = rec["down_suh"][0]; a = min(v[1] for v in rec.values()); b = max(v[2] for v in rec.values())
+                blob, _ = expert_blob(rec, http_range(sh, a, b), a)
+                ok = bytes(mm[l * px.LAYER + e * px.BLOB:l * px.LAYER + (e + 1) * px.BLOB]) == blob
+                bad += not ok
+                if not ok: print(f"MISMATCH layer {l} expert {e}", flush=True)
         sha = hashlib.sha256(mm[l * px.LAYER:(l + 1) * px.LAYER]).hexdigest()
         ent = m["layers"].get(str(l), {})
         good = sha == ent.get("sha256") and ent.get("via", "").startswith("turboderp")
         bad += not good
-        print(f"layer {l}: {per_layer + 2} experts re-fetched byte-equal, section sha {'matches manifest' if good else 'MISMATCH'}", flush=True)
-    print("VERIFY", "OK" if bad == 0 else f"FAILED ({bad})")
+        print(f"layer {l}: " + ("" if sha_only else f"{per_layer + 2} experts re-fetched byte-equal, ") +
+              f"section sha {'matches manifest' if good else 'MISMATCH'}", flush=True)
+    print("VERIFY", "OK" if bad == 0 else f"FAILED ({bad})", flush=True)
+    return bad
+
+
+def cmd_compare(a_path, b_path, layers):
+    """Offline: the per-layer section sha256 of manifest A (e.g. a fresh fetch) must equal manifest B's (the committed one). Returns the failure count."""
+    a, b = json.load(open(a_path))["layers"], json.load(open(b_path))["layers"]
+    bad = 0
+    for l in layers or sorted(b, key=int):
+        x, y = a.get(str(l), {}).get("sha256"), b.get(str(l), {}).get("sha256")
+        good = x is not None and x == y
+        bad += not good
+        print(f"layer {l} sha256 {(x or 'missing')[:16]} vs {(y or 'missing')[:16]} -> {'MATCH' if good else 'MISMATCH'}", flush=True)
+    print("COMPARE", "OK" if bad == 0 else f"FAILED ({bad})", flush=True)
+    return bad
 
 
 def cmd_status():
     m = px.manifest()
     td = [l for l, v in m["layers"].items() if v.get("via", "").startswith("turboderp")]
     print(f"{len(td)}/{px.N_LAYERS} layers from turboderp: {sorted(map(int, td))}")
+    return 0
+
+
+def main(argv):
+    """Exit status: 0 = ok, 1 = a verification failed (VERIFY FAILED / COMPARE FAILED / a layer's sha256 differs from --expect), 2 = usage."""
+    c = argv[0] if argv else ""
+    flags = [a for a in argv[1:] if a.startswith("--")]
+    rest = [a for a in argv[1:] if not a.startswith("--")]
+    if c == "index": cmd_index(); return 0
+    if c == "check": cmd_check(int(rest[0]), [int(x) for x in rest[1:]]); return 0
+    if c == "sync":
+        expect = next((f.split("=", 1)[1] for f in flags if f.startswith("--expect=")), None)
+        cmd_sync([int(x) for x in rest], neon="--no-neon" not in flags, expect=expect); return 0
+    if c == "verify": return 1 if cmd_verify(layers=[int(x) for x in rest], sha_only="--sha-only" in flags) else 0
+    if c == "compare": return 1 if cmd_compare(rest[0], rest[1], [int(x) for x in rest[2:]]) else 0
+    if c == "status": return cmd_status()
+    print("usage: pack_td.py index | check L E.. | sync [--no-neon] [--expect=REF.json] [L..] | verify [--sha-only] [L..] | compare A.json B.json [L..] | status", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":
-    c = sys.argv[1]
-    if c == "index": cmd_index()
-    elif c == "check": cmd_check(int(sys.argv[2]), [int(x) for x in sys.argv[3:]])
-    elif c == "sync": cmd_sync([int(x) for x in sys.argv[2:]])
-    elif c == "verify": cmd_verify(layers=[int(x) for x in sys.argv[2:]])
-    elif c == "status": cmd_status()
+    sys.exit(main(sys.argv[1:]))
