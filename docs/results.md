@@ -177,6 +177,7 @@ Run by `scripts/verify-card-free.sh` on the mini; raw output in [`results/verifi
 | `libexl3metal` test on the mini with the rebuilt dylib + rebuilt `libexl3cpu` | ALL PASS (same checks as the original receipt) |
 | `libexl3cpu.dylib` rebuilt (`exl3/cpu/build.sh`, SDK 26.5 or 26.0) | sha256 `9fe9cab5491e...` = the deployed dylib, byte for byte (an absolute `-o` path changes the bytes: clang puts it in the install name; the script builds with a relative name; SDK 15.x differs in 52 bytes) |
 | `test_exl3_cpu.py` with the rebuilt dylib | ALL PASS 106/106 (the real-expert cases read 6 experts of layer 24 from the pack instead of the retired encoder fixture; `results/verification/cpu_receipt_rebuilt.json`) |
+| `configs/render.sh` on the three config templates with the mini's `$HOME` | byte-identical to the live `~/shim/strata-exl3-full512-{final-g4-lru,final-g4,final}.json` |
 | `pack_td.py index` | regenerated headers byte-identical to the existing index (sha256 `2dc6b0ce...`, `0ea6ec8c...`) |
 | `pack_td.py sync 24` into a temp pack (0.95 GB fetched from the pinned revision, 76 s) | section sha256 `80eb9002da51...` = manifest layer 24; NEON forward vs reference rel RMS 5.2e-4 |
 | `exl3_strata_pf.fatbin`, `exl3_strata_recon.fatbin` rebuilt with nvcc 13.4 in the container | sha256 identical to the deployed fatbins |

@@ -11,6 +11,7 @@ Checks done by hand, same day, not part of the script output:
 - Driver Mac: `git clone --branch v0.1.41 https://github.com/Niko1221/Strata` -> `fb58e0dbc8399662c0e47c76578c6e878b14f6cf`;
   `git apply --check patches/vision/0001-strata-vision-metal-macos.patch` ok; llama.cpp fetched at `3cf03257f219afbe7334045ff7c6a06ac68c627d`;
   `vision/build_vision_mac.sh` built `strata-vision-metal` in 38 s (8,077,952 B, same size as the deployed one; sha256 differs; not run).
+- `configs/render.sh <template> /Users/<user>` for the three templates compared with `cmp` against the live config files on the mini: identical.
 - Mini: `pack_td.py index` regenerated `td/experts_index.json` / `other_index.json` byte-identical to the existing files (sha256 `2dc6b0ce77e9...`,
   `0ea6ec8cdcc5...`). The first run of `td_hdr.py` (which then wrote to `~/exl3/td/`) rewrote the live copies of those two files with identical bytes;
   the script now writes next to itself.
