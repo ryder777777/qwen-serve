@@ -78,6 +78,7 @@ struct exl3m_job {
     size_t y_bytes;
     id<MTLBuffer> src;       // shared buffer holding the result
     double t_submit, t_encode, t_copy;
+    bool dec = false;         // a decode-shape job (the only kind the spin wait applies to)
 };
 
 namespace {
@@ -163,6 +164,10 @@ exl3m_ctx *exl3m_create(int n_threads, int n_slots) {
             !P.decode_w || !P.gemm_gu || !P.gemm_d || !P.mid_pf || !P.comb_pf) { delete c; return nullptr; }
         if (n_slots <= 0) n_slots = 2;
         if (n_slots > 8) n_slots = 8;
+        if (const char *e = getenv("EXL3M_WAIT_SPIN")) c->wait_spin = atoi(e);        // decode jobs: poll the command buffer instead of waitUntilCompleted
+        if (const char *e = getenv("EXL3M_UNRETAINED")) c->unretained = atoi(e);
+        if (const char *e = getenv("EXL3M_PF_CHUNK_ROWS")) { if (atoi(e) >= 64) c->pf_chunk_rows = atoi(e); }          // prefill scratch size (rows per chunk) ...
+        if (const char *e = getenv("EXL3M_PF_CHUNK_EXPERTS")) { if (atoi(e) >= 1) c->pf_chunk_experts = atoi(e); }     // ... and decoded-weight experts per chunk: smaller = less Metal memory
         c->slots.resize((size_t)n_slots);
         for (auto &s : c->slots) {
             s.d_x = mkbuf(c, 8 * (size_t)H * 4);
@@ -199,6 +204,7 @@ int64_t exl3m_register(exl3m_ctx *c, const void *base, size_t len) {
         }
         std::unique_lock<std::shared_mutex> l(c->rmu);
         c->regions.push_back(std::move(r));
+        if (getenv("EXL3M_LOG_ALLOC")) fprintf(stderr, "exl3m: registered %.2f GB; Metal allocated %.2f GB of recommended %.2f GB\n", (double)(e - b) / 1e9, (double)c->dev.currentAllocatedSize / 1e9, (double)c->dev.recommendedMaxWorkingSetSize / 1e9);
         return (int64_t)(e - b);
     }
 }
@@ -219,6 +225,9 @@ int exl3m_set_param(exl3m_ctx *c, const char *key, int64_t v) {
     return -1;
 }
 void exl3m_get_stats(exl3m_ctx *c, exl3m_stats *out) { std::lock_guard<std::mutex> l(c->stmu); *out = c->st; }
+// Metal memory accounting: bytes this process holds as Metal resources vs the device's recommended working set (HostTailAndPrefill 2026-10-12)
+int64_t exl3m_alloc_bytes(exl3m_ctx *c) { return (int64_t)c->dev.currentAllocatedSize; }
+int64_t exl3m_recommended_bytes(exl3m_ctx *c) { return (int64_t)c->dev.recommendedMaxWorkingSetSize; }
 
 // ---------------------------------------------------------------------------------------------------------------------
 int exl3m_moe_rows_submit(exl3m_ctx *c, const float *x, int m, int n_pairs, const int32_t *eidx, const int32_t *ridx, const float *w,
@@ -314,6 +323,7 @@ int exl3m_moe_rows_submit(exl3m_ctx *c, const float *x, int m, int n_pairs, cons
         if (!(c->skip_mask & 0x1000)) [en dispatchThreadgroups:MTLSizeMake(20, (NSUInteger)m, 1) threadsPerThreadgroup:tg128];
         [en endEncoding];
         exl3m_job *j = new exl3m_job{ s, cb, y_out, (size_t)m * H * 4, s->d_out, now_ms(), 0, tc };
+        j->dec = true;
         j->t_encode = j->t_submit - t0;
         [cb commit];
         *jobp = j;
@@ -324,7 +334,11 @@ int exl3m_moe_rows_submit(exl3m_ctx *c, const float *x, int m, int n_pairs, cons
 
 int exl3m_wait(exl3m_ctx *c, exl3m_job *j) {
     @autoreleasepool {
-        if (c->wait_spin) { while (j->cb.status < MTLCommandBufferStatusCompleted) {} } else [j->cb waitUntilCompleted];
+        if (c->wait_spin && j->dec) { while (j->cb.status < MTLCommandBufferStatusCompleted) {} } else [j->cb waitUntilCompleted];
+        if (!j->dec && getenv("EXL3M_LOG_ALLOC")) {
+            static int n = 0;
+            if (++n % 50 == 1) fprintf(stderr, "exl3m: prefill job %d: Metal allocated %.2f GB of recommended %.2f GB\n", n, (double)c->dev.currentAllocatedSize / 1e9, (double)c->dev.recommendedMaxWorkingSetSize / 1e9);
+        }
         const double t1 = now_ms();
         int rc = 0;
         if (j->cb.status != MTLCommandBufferStatusCompleted) {

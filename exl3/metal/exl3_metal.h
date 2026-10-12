@@ -74,6 +74,8 @@ int exl3m_moe_prefill_h_submit(exl3m_ctx *ctx, const uint16_t *x16, int n_tok, i
 /* Tuning: "pf_chunk_rows" (default 4096), "pf_chunk_experts" (default 16). Returns 0 or -1 for an unknown key. */
 int exl3m_set_param(exl3m_ctx *ctx, const char *key, int64_t value);
 void exl3m_get_stats(exl3m_ctx *ctx, exl3m_stats *out);
+int64_t exl3m_alloc_bytes(exl3m_ctx *ctx);          /* MTLDevice.currentAllocatedSize */
+int64_t exl3m_recommended_bytes(exl3m_ctx *ctx);    /* MTLDevice.recommendedMaxWorkingSetSize */
 
 #ifdef __cplusplus
 }
