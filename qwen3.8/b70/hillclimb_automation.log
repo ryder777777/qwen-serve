@@ -1,0 +1,581 @@
+[18:34:34] Iteration: KNOB=16concurrent_mtp8 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=16
+[18:34:34] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16concurrent_mtp8.sh
+[18:34:34] Stopping old container...
+[18:34:45] Starting container with knob 16concurrent_mtp8...
+[18:34:45] Waiting for server health...
+[18:38:23] Server healthy!
+[18:38:23] Benchmarking at http://172.17.0.2:8000 ...
+[18:38:55]   hard run 1: 256 tok in 8165ms = 31.4 tok/s
+[18:39:03]   hard run 2: 256 tok in 8557ms = 29.9 tok/s
+[18:39:11]   hard run 3: 256 tok in 8193ms = 31.2 tok/s
+[18:39:17]   easy run 1: 184 tok in 5184ms = 35.5 tok/s
+[18:39:20]   easy run 2: 184 tok in 3127ms = 58.8 tok/s
+[18:39:23]   easy run 3: 184 tok in 3309ms = 55.6 tok/s
+[18:39:24]   COHERENCE FAIL: got '5137' expected 1887
+[18:39:24]   COHERENCE FAIL: got 'We need answer user'' expected Paris
+[18:39:24]   coherence: ❌ (51×37=5137, capital=We need answer user')
+[19:02:01] Iteration: KNOB=16concurrent_mtp8 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=16
+[19:02:01] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16concurrent_mtp8.sh
+[19:02:01] Stopping old container...
+[19:02:07] Starting container with knob 16concurrent_mtp8...
+[19:02:08] Waiting for server health...
+[19:05:42] Server healthy!
+[19:05:42] Benchmarking at http://172.17.0.2:8000 ...
+[19:06:13]   hard run 1: 256 tok in 8210ms = 31.2 tok/s
+[19:06:21]   hard run 2: 256 tok in 8297ms = 30.9 tok/s
+[19:06:30]   hard run 3: 256 tok in 8505ms = 30.1 tok/s
+[19:06:35]   easy run 1: 184 tok in 5386ms = 34.2 tok/s
+[19:06:38]   easy run 2: 184 tok in 3259ms = 56.5 tok/s
+[19:06:42]   easy run 3: 184 tok in 3262ms = 56.4 tok/s
+[19:06:44]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[19:07:14]   conc round 1: 0.0 tok/s aggregate (0 tok in 3.084049940109253s)
+[19:07:17]   conc round 2: 0.0 tok/s aggregate (0 tok in 3.0361127853393555s)
+[19:07:20]   conc round 3: 0.0 tok/s aggregate (0 tok in 3.10050368309021s)
+[19:07:20] Recording: | 37 | 2026-08-21 19:02 |  16concurrent_mtp8 | 30.9 hard / 56.4 easy / 0.0 conc×16 agg | ✅ | REGRESSION. Config: MTP8, mem=0.70, seqs=4, batched=2048, modellen=4096, conc=16.
+[19:07:20] Done. hard=30.9 easy=56.4 conc=0.0 coherent=✅
+[19:07:21] Git committed and pushed (if possible). Iteration complete.
+[19:11:11] Iteration: KNOB=16conc_mtp8_seqs8 MTP=8 MEM=0.60 SEQS=8 BATCHED=4096 MODELLEN=4096 CONC=16
+[19:11:11] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp8_seqs8.sh
+[19:11:11] Stopping old container...
+[19:11:11] Starting container with knob 16conc_mtp8_seqs8...
+[19:11:12] Waiting for server health...
+[19:13:52] Container died during startup
+[19:13:52] FAIL: server not healthy after 8 min. Container logs (last 30 lines):
+(Worker_TP0 pid=630) INFO 08-21 17:12:19 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 17:12:19 [llm_base_proposer.py:1311] Detected MTP model. Sharing target model embedding weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 17:12:19 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 17:12:20 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP1 pid=631) INFO 08-21 17:12:20 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP1 pid=631) INFO 08-21 17:12:20 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP1 pid=631) INFO 08-21 17:12:20 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [gpu_model_runner.py:5003] Model loading took 9.08 GiB memory and 8.101877 seconds
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP0 pid=630) /opt/venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+(Worker_TP0 pid=630)   return func(*args, **kwargs)
+(Worker_TP1 pid=631) INFO 08-21 17:12:20 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP0 pid=630) INFO 08-21 17:12:20 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP1 pid=631) WARNING 08-21 17:12:31 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) WARNING 08-21 17:12:31 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 17:12:31 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/c773de3854/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 17:12:31 [backends.py:1148] Dynamo bytecode transform time: 10.83 s
+(Worker_TP0 pid=630) INFO 08-21 17:12:35 [backends.py:378] Cache the graph of compile range (1, 4096) for later use
+(EngineCore pid=480) INFO 08-21 17:13:21 [shm_broadcast.py:681] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP0 pid=630) INFO 08-21 17:13:23 [backends.py:393] Compiling a graph for compile range (1, 4096) takes 50.91 s
+(Worker_TP0 pid=630) INFO 08-21 17:13:36 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/2b4dc637c542ad63c34dbbd62b61071669c65ee26929afaad59ff1a6dbf946b2/rank_0_0/model
+(Worker_TP0 pid=630) INFO 08-21 17:13:36 [monitor.py:53] torch.compile took 76.36 s in total
+(Worker_TP0 pid=630) INFO 08-21 17:13:48 [monitor.py:81] Initial profiling/warmup run took 11.41 s
+(Worker_TP1 pid=631) WARNING 08-21 17:13:48 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) WARNING 08-21 17:13:48 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 17:13:48 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/c773de3854/rank_0_0/eagle_head for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 17:13:48 [backends.py:1148] Dynamo bytecode transform time: 0.70 s
+[19:17:10] Iteration: KNOB=16conc_mtp8_seqs8 MTP=8 MEM=0.60 SEQS=8 BATCHED=2048 MODELLEN=4096 CONC=16
+[19:17:10] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp8_seqs8.sh
+[19:17:10] Stopping old container...
+[19:17:11] Starting container with knob 16conc_mtp8_seqs8...
+[19:17:11] Waiting for server health...
+[19:19:39] Container died after 150s
+[19:19:39] FAIL: container died (likely OOM-kill). Container logs (last 30 lines):
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards:   0% Completed | 0/8 [00:00<?, ?it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards:  75% Completed | 6/8 [00:00<00:00, 10.50it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards: 100% Completed | 8/8 [00:01<00:00,  5.82it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards: 100% Completed | 8/8 [00:01<00:00,  6.47it/s]
+(Worker_TP0 pid=630) 
+(Worker_TP0 pid=630) INFO 08-21 17:18:18 [default_loader.py:397] Loading weights took 1.24 seconds
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [llm_base_proposer.py:1311] Detected MTP model. Sharing target model embedding weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [llm_base_proposer.py:1311] Detected MTP model. Sharing target model embedding weights with the draft model.
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [gpu_model_runner.py:5003] Model loading took 9.08 GiB memory and 7.794600 seconds
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP0 pid=630) INFO 08-21 17:18:20 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP1 pid=631) INFO 08-21 17:18:20 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP0 pid=630) /opt/venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+(Worker_TP0 pid=630)   return func(*args, **kwargs)
+(Worker_TP1 pid=631) INFO 08-21 17:18:21 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP0 pid=630) INFO 08-21 17:18:21 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP1 pid=631) WARNING 08-21 17:18:32 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) WARNING 08-21 17:18:32 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 17:18:32 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/396a390937/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 17:18:32 [backends.py:1148] Dynamo bytecode transform time: 11.20 s
+(Worker_TP0 pid=630) INFO 08-21 17:18:36 [backends.py:378] Cache the graph of compile range (1, 2048) for later use
+(EngineCore pid=480) INFO 08-21 17:19:21 [shm_broadcast.py:681] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP0 pid=630) INFO 08-21 17:19:24 [backends.py:393] Compiling a graph for compile range (1, 2048) takes 51.54 s
+[19:24:45] Iteration: KNOB=16conc_mtp8 MTP=8 MEM=0.65 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=16
+[19:24:45] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp8.sh
+[19:24:45] Stopping old container...
+[19:24:45] Starting container with knob 16conc_mtp8...
+[19:24:46] Waiting for server health...
+[19:34:51] FAIL: server not healthy after 10 min. Container logs (last 30 lines):
+(EngineCore pid=480) INFO 08-21 17:27:47 [kv_cache_utils.py:1711] Maximum concurrency for 4,096 tokens per request: 10.84x
+(Worker_TP0 pid=630) INFO 08-21 17:27:48 [utils.py:60] `_KV_CACHE_LAYOUT_OVERRIDE` variable detected. Setting KV cache layout to NHD.
+(Worker_TP0 pid=630) INFO 08-21 17:27:48 [kernel_warmup.py:44] Skipping FlashInfer autotune because it is disabled.
+(Worker_TP1 pid=631) INFO 08-21 17:27:48 [kernel_warmup.py:44] Skipping FlashInfer autotune because it is disabled.
+(Worker_TP0 pid=630) Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):   0%|          | 0/12 [00:00<?, ?it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):   8%|▊         | 1/12 [00:00<00:05,  2.10it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  17%|█▋        | 2/12 [00:00<00:04,  2.27it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  25%|██▌       | 3/12 [00:01<00:03,  2.40it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  33%|███▎      | 4/12 [00:01<00:03,  2.39it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  42%|████▏     | 5/12 [00:02<00:03,  2.26it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  50%|█████     | 6/12 [00:02<00:02,  2.17it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  58%|█████▊    | 7/12 [00:03<00:02,  2.25it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  67%|██████▋   | 8/12 [00:03<00:01,  2.32it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  75%|███████▌  | 9/12 [00:03<00:01,  2.34it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  83%|████████▎ | 10/12 [00:04<00:00,  2.44it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  92%|█████████▏| 11/12 [00:04<00:00,  2.47it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE): 100%|██████████| 12/12 [00:05<00:00,  2.45it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE): 100%|██████████| 12/12 [00:05<00:00,  2.35it/s]
+(Worker_TP0 pid=630) INFO 08-21 17:27:54 [gpu_model_runner.py:6288] Graph capturing finished in 6 secs, took 5.81 GiB
+(Worker_TP0 pid=630) INFO 08-21 17:27:54 [jit_monitor.py:54] Kernel JIT monitor activated — Triton JIT compilations during inference will be logged as warnings.
+(Worker_TP1 pid=631) INFO 08-21 17:27:54 [jit_monitor.py:54] Kernel JIT monitor activated — Triton JIT compilations during inference will be logged as warnings.
+(EngineCore pid=480) INFO 08-21 17:27:54 [core.py:302] init engine (profile, create kv cache, warmup model) took 122.13 s (compilation: 92.56 s)
+(EngineCore pid=480) INFO 08-21 17:27:56 [esimd_fake_ops.py:220] Registered fake impls for custom_esimd_kernels_vllm / moe_ops ops (torch.compile / XPU graph support).
+(EngineCore pid=480) [transformers] `Qwen2VLImageProcessorFast` is deprecated. The `Fast` suffix for image processors has been removed; use `Qwen2VLImageProcessor` instead.
+(EngineCore pid=480) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+(EngineCore pid=480) INFO 08-21 17:28:01 [vllm.py:895] Asynchronous scheduling is enabled.
+(EngineCore pid=480) INFO 08-21 17:28:01 [kernel.py:212] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=480) WARNING 08-21 17:28:01 [vllm.py:1464] max_num_scheduled_tokens is set to 2048 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+(APIServer pid=1) INFO 08-21 17:28:01 [api_server.py:613] Supported tasks: ['generate']
+(APIServer pid=1) WARNING 08-21 17:28:01 [model.py:1454] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+(APIServer pid=1) INFO 08-21 17:28:02 [hf.py:483] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+(APIServer pid=1) INFO 08-21 17:28:15 [base.py:224] Multi-modal warmup completed in 12.825s
+(APIServer pid=1) INFO 08-21 17:28:15 [base.py:224] Readonly multi-modal warmup completed in 0.270s
+(APIServer pid=1) INFO 08-21 17:28:15 [api_server.py:617] Starting vLLM server on http://0.0.0.0:8000
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:37] Available routes are:
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:46] Route: /openapi.json, Methods: GET, HEAD
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:46] Route: /docs, Methods: GET, HEAD
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:46] Route: /docs/oauth2-redirect, Methods: GET, HEAD
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:46] Route: /redoc, Methods: GET, HEAD
+(APIServer pid=1) INFO 08-21 17:28:15 [launcher.py:46] Route: /metrics, Methods: GET
+(APIServer pid=1) INFO:     Started server process [1]
+(APIServer pid=1) INFO:     Waiting for application startup.
+(APIServer pid=1) INFO:     Application startup complete.
+[19:44:59] Iteration: KNOB=8conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=8
+[19:44:59] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp8_mem070.sh
+[19:44:59] Stopping old container...
+[19:45:05] Starting container with knob 8conc_mtp8_mem070...
+[19:45:07] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health
+[19:45:07] Waiting for server health...
+[19:48:42] Server healthy!
+[19:48:42] Benchmarking at http://172.17.0.3:8000 ...
+[19:52:52] Iteration: KNOB=8conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=8
+[19:52:52] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp8_mem070.sh
+[19:52:52] Stopping old container...
+[19:52:52] Starting container with knob 8conc_mtp8_mem070...
+[19:52:55] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health
+[19:52:55] Waiting for server health...
+[19:56:23] Server healthy!
+[19:56:23] Benchmarking at http://172.17.0.3:8000 ...
+[19:57:01]   hard run 1: 256 tok in 5374ms = 47.6 tok/s
+[19:57:06]   hard run 2: 256 tok in 5153ms = 49.7 tok/s
+[19:57:11]   hard run 3: 256 tok in 5066ms = 50.5 tok/s
+[19:57:14]   easy run 1: 184 tok in 3202ms = 57.5 tok/s
+[19:57:18]   easy run 2: 184 tok in 3171ms = 58.0 tok/s
+[19:57:21]   easy run 3: 184 tok in 3163ms = 58.2 tok/s
+[19:57:23]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[19:58:00]   conc round 1: 134.6 tok/s aggregate (1624 tok in 12.062129259109497s)
+[20:13:00] Iteration: KNOB=8conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=8
+[20:13:00] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp8_mem070.sh
+[20:13:00] Stopping old container...
+[20:13:00] Starting container with knob 8conc_mtp8_mem070...
+[20:13:03] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health
+[20:13:03] Waiting for server health...
+[20:14:48] Container died after 63s
+[20:14:48] FAIL: container died (likely OOM-kill). Container logs (last 30 lines):
+Error response from daemon: No such container: vllm-tp2-pw
+[20:15:39] Iteration: KNOB=12conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=12
+[20:15:39] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp8_mem070.sh
+[20:15:39] Stopping old container...
+[20:15:39] Starting container with knob 12conc_mtp8_mem070...
+[20:15:42] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health
+[20:15:42] Waiting for server health...
+[20:17:46] Container died after 123s
+[20:17:46] FAIL: container died (likely OOM-kill). Container logs (last 30 lines):
+(Worker_TP0 pid=630) WARNING 08-21 18:16:45 [vllm.py:1464] max_num_scheduled_tokens is set to 2048 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+(Worker_TP0 pid=630) INFO 08-21 18:16:45 [weight_utils.py:938] Filesystem type for checkpoints: BTRFS. Checkpoint size: 17.69 GiB. Available RAM: 437.99 GiB.
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards:   0% Completed | 0/8 [00:00<?, ?it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards:  75% Completed | 6/8 [00:00<00:00, 10.45it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards: 100% Completed | 8/8 [00:01<00:00,  5.78it/s]
+(Worker_TP0 pid=630) Loading safetensors checkpoint shards: 100% Completed | 8/8 [00:01<00:00,  6.42it/s]
+(Worker_TP0 pid=630) 
+(Worker_TP0 pid=630) INFO 08-21 18:16:46 [default_loader.py:397] Loading weights took 1.25 seconds
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [llm_base_proposer.py:1311] Detected MTP model. Sharing target model embedding weights with the draft model.
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [llm_base_proposer.py:1311] Detected MTP model. Sharing target model embedding weights with the draft model.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [llm_base_proposer.py:1382] Detected MTP model. Sharing target model lm_head weights with the draft model.
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [gpu_model_runner.py:5003] Model loading took 9.08 GiB memory and 8.126444 seconds
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP0 pid=630) INFO 08-21 18:16:48 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [interface.py:669] Padding mamba page size by 1.09% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP1 pid=631) INFO 08-21 18:16:48 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP0 pid=630) /opt/venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+(Worker_TP0 pid=630)   return func(*args, **kwargs)
+(Worker_TP0 pid=630) INFO 08-21 18:16:49 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP1 pid=631) INFO 08-21 18:16:49 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP0 pid=630) WARNING 08-21 18:17:00 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 18:17:00 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/7832a2f689/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 18:17:00 [backends.py:1148] Dynamo bytecode transform time: 11.10 s
+(Worker_TP1 pid=631) WARNING 08-21 18:17:00 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 18:17:04 [backends.py:378] Cache the graph of compile range (1, 2048) for later use
+[20:22:37] Iteration: KNOB=12conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=12
+[20:22:37] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp8_mem070.sh
+[20:22:37] Stopping old container...
+[20:22:37] Starting container with knob 12conc_mtp8_mem070...
+[20:22:39] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[20:22:39] Waiting for server health...
+[20:26:47] Server healthy!
+[20:26:47] Benchmarking at http://172.17.0.4:8000 ...
+[20:27:21]   hard run 1: 256 tok in 5261ms = 48.7 tok/s
+[20:27:27]   hard run 2: 256 tok in 5314ms = 48.2 tok/s
+[20:27:32]   hard run 3: 256 tok in 5133ms = 49.9 tok/s
+[20:27:35]   easy run 1: 184 tok in 3426ms = 53.7 tok/s
+[20:27:38]   easy run 2: 184 tok in 3144ms = 58.5 tok/s
+[20:27:42]   easy run 3: 184 tok in 3299ms = 55.8 tok/s
+[20:27:44]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[20:28:24]   conc round 1: 123.1 tok/s aggregate (2436 tok in 19.78495192527771s)
+[20:28:43]   conc round 2: 134.8 tok/s aggregate (2436 tok in 18.076035737991333s)
+[20:29:01]   conc round 3: 135.5 tok/s aggregate (2436 tok in 17.979232788085938s)
+[20:29:01] Recording: | 71 | 2026-08-21 20:22 |  12conc_mtp8_mem070 | 48.7 hard / 55.8 easy / 134.8 conc×12 agg | ✅ | NEW BEST concurrent hard agg (134.8 vs 93.4). Config: MTP8, mem=0.70, seqs=4, batched=2048, modellen=4096, conc=12.
+[20:29:01] Done. hard=48.7 easy=55.8 conc=134.8 coherent=✅
+[20:29:01] NEW BEST detected — updating Current Best table in HILLCLIMB.md
+[20:29:01] Git committed and pushed (if possible). Iteration complete.
+[20:30:00] Iteration: KNOB=16conc_mtp8_mem070 MTP=8 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=16
+[20:30:00] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp8_mem070.sh
+[20:30:00] Stopping old container...
+[20:30:06] Starting container with knob 16conc_mtp8_mem070...
+[20:30:09] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[20:30:09] Waiting for server health...
+[20:33:46] Server healthy!
+[20:33:46] Benchmarking at http://172.17.0.4:8000 ...
+[20:34:24]   hard run 1: 256 tok in 5699ms = 44.9 tok/s
+[20:34:30]   hard run 2: 256 tok in 5691ms = 45.0 tok/s
+[20:34:35]   hard run 3: 256 tok in 5637ms = 45.4 tok/s
+[20:34:39]   easy run 1: 184 tok in 3357ms = 54.8 tok/s
+[20:34:42]   easy run 2: 184 tok in 3400ms = 54.1 tok/s
+[20:34:45]   easy run 3: 184 tok in 3309ms = 55.6 tok/s
+[20:34:47]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[20:35:32]   conc round 1: 134.5 tok/s aggregate (3248 tok in 24.14173197746277s)
+[20:35:59]   conc round 2: 123.5 tok/s aggregate (3248 tok in 26.300325632095337s)
+[20:36:31]   conc round 3: 102.7 tok/s aggregate (3248 tok in 31.636345148086548s)
+[20:36:31] Recording: | 72 | 2026-08-21 20:30 |  16conc_mtp8_mem070 | 45.0 hard / 54.8 easy / 123.5 conc×16 agg | ✅ | NEW BEST concurrent hard agg (123.5 vs 93.4). Config: MTP8, mem=0.70, seqs=4, batched=2048, modellen=4096, conc=16.
+[20:36:31] Done. hard=45.0 easy=54.8 conc=123.5 coherent=✅
+[20:36:31] NEW BEST detected — updating Current Best table in HILLCLIMB.md
+[20:36:31] Git committed and pushed (if possible). Iteration complete.
+[20:41:57] Iteration: KNOB=8conc_mtp6_mem070 MTP=6 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=8
+[20:41:57] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp6_mem070.sh
+[20:41:57] Stopping old container...
+[20:42:03] Starting container with knob 8conc_mtp6_mem070...
+[20:42:06] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[20:42:06] Waiting for server health...
+[20:45:40] Server healthy!
+[20:45:40] Benchmarking at http://172.17.0.4:8000 ...
+[20:56:51] Iteration: KNOB=12conc_mtp6_mem070 MTP=6 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=12
+[20:56:51] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp6_mem070.sh
+[20:56:51] Stopping old container...
+[20:56:51] Starting container with knob 12conc_mtp6_mem070...
+[20:56:53] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[20:56:53] Waiting for server health...
+[21:00:58] Server healthy!
+[21:00:58] Benchmarking at http://172.17.0.4:8000 ...
+[21:01:17] FAIL: warmup request failed — engine may be dead. Response: {"error":{"message":"EngineCore encountered an issue. See stack trace (above) for the root cause.","type":"InternalServerError","param":null,"code":500}}
+[21:11:56] Iteration: KNOB=12conc_mtp6_mem070 MTP=6 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=12
+[21:11:56] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp6_mem070.sh
+[21:11:56] Stopping old container...
+[21:11:56] Starting container with knob 12conc_mtp6_mem070...
+[21:11:59] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[21:11:59] Waiting for server health...
+[21:15:33] Server healthy!
+[21:15:33] Benchmarking at http://172.17.0.4:8000 ...
+[21:15:58] FAIL: warmup request failed — engine may be dead. Response: {"error":{"message":"EngineCore encountered an issue. See stack trace (above) for the root cause.","type":"InternalServerError","param":null,"code":500}}
+[21:26:48] Iteration: KNOB=8conc_mtp5_mem070 MTP=5 MEM=0.70 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=8
+[21:26:48] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp5_mem070.sh
+[21:26:48] Stopping old container...
+[21:26:48] Starting container with knob 8conc_mtp5_mem070...
+[21:26:50] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[21:26:50] Waiting for server health...
+[21:29:39] Container died after 132s
+[21:29:39] FAIL: container died (likely OOM-kill). Container logs (last 30 lines):
+Error response from daemon: No such container: vllm-tp2-pw
+[21:41:52] Iteration: KNOB=12conc_mtp5_mem072 MTP=5 MEM=0.72 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=12|SKIP|mtp5_unstable
+[21:41:52] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp5_mem072.sh
+[21:41:52] Stopping old container...
+[21:41:52] Starting container with knob 12conc_mtp5_mem072...
+[21:41:55] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[21:41:55] Waiting for server health...
+[21:45:32] Server healthy!
+[21:45:32] Benchmarking at http://172.17.0.4:8000 ...
+[21:56:50] Iteration: KNOB=6conc_mtp8_mem075 MTP=8 MEM=0.75 SEQS=4 BATCHED=2048 MODELLEN=4096 CONC=6
+[21:56:50] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_6conc_mtp8_mem075.sh
+[21:56:50] Stopping old container...
+[21:56:50] Starting container with knob 6conc_mtp8_mem075...
+[21:56:52] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[21:56:52] Waiting for server health...
+[22:00:29] Server healthy!
+[22:00:29] Benchmarking at http://172.17.0.4:8000 ...
+[22:00:42] FAIL: warmup request failed — engine may be dead. Response: {"error":{"message":"EngineCore encountered an issue. See stack trace (above) for the root cause.","type":"InternalServerError","param":null,"code":500}}
+[22:11:56] Iteration: KNOB=8conc_mtp5_seqs1 MTP=5 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=8
+[22:11:56] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp5_seqs1.sh
+[22:11:56] Stopping old container...
+[22:11:56] Starting container with knob 8conc_mtp5_seqs1...
+[22:11:58] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health
+[22:11:58] Waiting for server health...
+[22:15:53] Container died after 213s
+[22:15:53] FAIL: container died (likely OOM-kill). Container logs (last 30 lines):
+(Worker_TP0 pid=630) INFO 08-21 20:13:11 [interface.py:669] Padding mamba page size by 2.97% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP0 pid=630) INFO 08-21 20:13:11 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP1 pid=631) INFO 08-21 20:13:11 [interface.py:492] Setting kv cache block size to 64 for FLASH_ATTN backend.
+(Worker_TP1 pid=631) INFO 08-21 20:13:11 [interface.py:645] Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size.
+(Worker_TP1 pid=631) INFO 08-21 20:13:11 [interface.py:669] Padding mamba page size by 2.97% to ensure that mamba page size and attention page size are exactly equal.
+(Worker_TP1 pid=631) INFO 08-21 20:13:11 [xpu.py:396] [XPU]Setting attention block size to 1024 tokens to ensure multiple of 64, set mamba_page_size_padded to 2097152 bytes accordingly, before was 1703936 bytes.
+(Worker_TP0 pid=630) /opt/venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+(Worker_TP0 pid=630)   return func(*args, **kwargs)
+(Worker_TP0 pid=630) INFO 08-21 20:13:11 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP1 pid=631) INFO 08-21 20:13:11 [gpu_model_runner.py:5938] Skipping memory profiling for multimodal encoder and encoder cache.
+(Worker_TP1 pid=631) WARNING 08-21 20:13:23 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) WARNING 08-21 20:13:23 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 20:13:23 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/3eea06c923/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 20:13:23 [backends.py:1148] Dynamo bytecode transform time: 12.38 s
+(Worker_TP0 pid=630) INFO 08-21 20:13:27 [backends.py:378] Cache the graph of compile range (1, 2048) for later use
+(EngineCore pid=480) INFO 08-21 20:14:12 [shm_broadcast.py:681] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP0 pid=630) INFO 08-21 20:14:19 [backends.py:393] Compiling a graph for compile range (1, 2048) takes 54.99 s
+(Worker_TP0 pid=630) INFO 08-21 20:14:35 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/fff70f084a0a699fea9f1475a703dd35b5f9eb5dc08689da915826aa93d9f85d/rank_0_0/model
+(Worker_TP0 pid=630) INFO 08-21 20:14:35 [monitor.py:53] torch.compile took 83.72 s in total
+(Worker_TP0 pid=630) INFO 08-21 20:14:42 [monitor.py:81] Initial profiling/warmup run took 7.76 s
+(Worker_TP0 pid=630) WARNING 08-21 20:14:43 [backends.py:1048] Failed to read file <frozen os>
+(Worker_TP0 pid=630) INFO 08-21 20:14:43 [backends.py:1089] Using cache directory: /root/.cache/vllm/torch_compile_cache/3eea06c923/rank_0_0/eagle_head for vLLM's torch.compile
+(Worker_TP0 pid=630) INFO 08-21 20:14:43 [backends.py:1148] Dynamo bytecode transform time: 1.02 s
+(Worker_TP1 pid=631) WARNING 08-21 20:14:44 [backends.py:1048] Failed to read file <frozen os>
+(EngineCore pid=480) INFO 08-21 20:15:12 [shm_broadcast.py:681] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP0 pid=630) INFO 08-21 20:15:16 [backends.py:393] Compiling a graph for compile range (1, 2048) takes 32.17 s
+(Worker_TP0 pid=630) INFO 08-21 20:15:16 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/56ff194f3a03f33bab81a3bb5203dabe896dc0f63dfb27b360bc6d04c66204b0/rank_0_0/model
+(Worker_TP0 pid=630) INFO 08-21 20:15:16 [monitor.py:53] torch.compile took 34.01 s in total
+(Worker_TP0 pid=630) INFO 08-21 20:15:21 [monitor.py:81] Initial profiling/warmup run took 4.45 s
+(Worker_TP0 pid=630) WARNING 08-21 20:15:22 [topk_topp_sampler.py:259] xpu kernel topk_topp_sampler does not support per-request generators. Falling back to PyTorch-native implementation.
+[22:27:13] Iteration: KNOB=8conc_mtp5_seqs1 MTP=5 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=8
+[22:27:13] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp5_seqs1.sh
+[22:27:13] === Container start attempt 1/2 ===
+[22:27:13] Starting container with knob 8conc_mtp5_seqs1 (attempt 1)...
+[22:27:17] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health (attempt 1)
+[22:27:17] Waiting for server health (attempt 1)...
+[22:30:42] Server healthy! (attempt 1)
+[22:30:59] Warmup OK, engine responsive (attempt 1)
+[22:31:01] Benchmarking at http://172.17.0.4:8000 ...
+[22:31:05]   hard run 1: 256 tok in 4315ms = 59.3 tok/s
+[22:31:10]   hard run 2: 256 tok in 4387ms = 58.4 tok/s
+[22:31:15]   hard run 3: 256 tok in 4903ms = 52.2 tok/s
+[22:31:17]   easy run 1: 184 tok in 2619ms = 70.3 tok/s
+[22:31:20]   easy run 2: 184 tok in 2574ms = 71.5 tok/s
+[22:31:22]   easy run 3: 184 tok in 2561ms = 71.8 tok/s
+[22:31:24]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[22:31:59]   conc round 1: 55.3 tok/s aggregate (1624 tok in 29.35419535636902s)
+[22:32:29]   conc round 2: 54.8 tok/s aggregate (1624 tok in 29.625751495361328s)
+[22:32:58]   conc round 3: 55.9 tok/s aggregate (1624 tok in 29.043128967285156s)
+[22:32:58] Recording: | 77 | 2026-08-21 22:27 | ⭐ 8conc_mtp5_seqs1 | 58.4 hard / 71.5 easy / 55.3 conc×8 agg | ✅ | NEW BEST single-stream hard (58.4 vs 50.5). Config: MTP5, mem=0.85, seqs=1, batched=2048, modellen=4096, conc=8.
+[22:32:58] Done. hard=58.4 easy=71.5 conc=55.3 coherent=✅
+[22:32:58] NEW BEST detected — updating Current Best table in HILLCLIMB.md
+[22:32:58] Git committed and pushed (if possible). Iteration complete.
+[22:34:53] Iteration: KNOB=12conc_mtp5_seqs1 MTP=5 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=12
+[22:34:53] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp5_seqs1.sh
+[22:34:53] === Container start attempt 1/2 ===
+[22:34:59] Starting container with knob 12conc_mtp5_seqs1 (attempt 1)...
+[22:35:01] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health (attempt 1)
+[22:35:01] Waiting for server health (attempt 1)...
+[22:36:59] Server healthy! (attempt 1)
+[22:37:15] Warmup FAILED (attempt 1): {"error":{"message":"EngineCore encountered an issue. See stack trace (above) for the root cause.","type":"InternalServerError","param":null,"code":500}}
+(EngineCore pid=479) ERROR 08-21 20:37:15 [core.py:1143]     response = self.aggregate(self.get_response())
+(EngineCore pid=479) ERROR 08-21 20:37:15 [core.py:1143]                               ^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=479) ERROR 08-21 20:37:15 [core.py:1143]   File "/opt/venv/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 390, in get_response
+(EngineCore pid=479) ERROR 08-21 20:37:15 [core.py:1143]     raise RuntimeError(
+(EngineCore pid=479) ERROR 08-21 20:37:15 [core.py:1143] RuntimeError: Worker failed with error 'level_zero backend failed with error: 20 (UR_RESULT_ERROR_DEVICE_LOST)', please check the stack trace above for the root cause
+(Worker_TP0 pid=629) INFO 08-21 20:37:15 [multiproc_executor.py:775] Parent process exited, terminating worker queues
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704] AsyncLLM output_handler failed.
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704] Traceback (most recent call last):
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704]   File "/opt/venv/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 660, in output_handler
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704]     outputs = await engine_core.get_output_async()
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704]   File "/opt/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 1005, in get_output_async
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704]     raise self._format_exception(outputs) from None
+(APIServer pid=1) ERROR 08-21 20:37:15 [async_llm.py:704] vllm.v1.engine.exceptions.EngineDeadError: EngineCore encountered an issue. See stack trace (above) for the root cause.
+(APIServer pid=1) INFO:     172.17.0.1:40334 - "POST /v1/chat/completions HTTP/1.1" 500 Internal Server Error
+[22:37:15] Engine died after warmup on attempt 1. Compile cache saved. Retrying...
+[22:37:15] === Container start attempt 2/2 ===
+[22:37:17] Starting container with knob 12conc_mtp5_seqs1 (attempt 2)...
+[22:37:19] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health (attempt 2)
+[22:37:19] Waiting for server health (attempt 2)...
+[22:39:14] Server healthy! (attempt 2)
+[22:44:36] Iteration: KNOB=16conc_mtp5_seqs1 MTP=5 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=16
+[22:44:36] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp5_seqs1.sh
+[22:44:36] === Container start attempt 1/2 ===
+[22:44:36] Starting container with knob 16conc_mtp5_seqs1 (attempt 1)...
+[22:44:38] Container IP: 172.17.0.4, health URL: http://172.17.0.4:8000/health (attempt 1)
+[22:44:38] Waiting for server health (attempt 1)...
+[22:46:42] Server healthy! (attempt 1)
+[22:47:15] Warmup OK, engine responsive (attempt 1)
+[22:47:17] Benchmarking at http://172.17.0.4:8000 ...
+[22:47:22]   hard run 1: 256 tok in 4733ms = 54.1 tok/s
+[22:47:26]   hard run 2: 256 tok in 4599ms = 55.7 tok/s
+[22:47:31]   hard run 3: 256 tok in 4658ms = 55.0 tok/s
+[22:47:34]   easy run 1: 184 tok in 2949ms = 62.4 tok/s
+[22:47:37]   easy run 2: 184 tok in 2741ms = 67.1 tok/s
+[22:47:39]   easy run 3: 184 tok in 2672ms = 68.9 tok/s
+[22:47:41]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[22:48:48]   conc round 1: 53.5 tok/s aggregate (3248 tok in 60.73849606513977s)
+[22:49:49]   conc round 2: 53.3 tok/s aggregate (3248 tok in 60.975470304489136s)
+[22:50:50]   conc round 3: 53.4 tok/s aggregate (3248 tok in 60.855125188827515s)
+[22:50:50] Recording: | 79 | 2026-08-21 22:44 | ⭐ 16conc_mtp5_seqs1 | 55.0 hard / 67.1 easy / 53.4 conc×16 agg | ✅ | NEW BEST single-stream hard (55.0 vs 50.5). Config: MTP5, mem=0.85, seqs=1, batched=2048, modellen=4096, conc=16.
+[22:50:50] Done. hard=55.0 easy=67.1 conc=53.4 coherent=✅
+[22:50:50] NEW BEST detected — updating Current Best table in HILLCLIMB.md
+[22:50:50] Git committed and pushed (if possible). Iteration complete.
+[22:52:53] Iteration: KNOB=8conc_mtp8_seqs1 MTP=8 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=8
+[22:52:53] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp8_seqs1.sh
+[22:52:53] === Container start attempt 1/2 ===
+[22:52:59] Starting container with knob 8conc_mtp8_seqs1 (attempt 1)...
+[22:53:01] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[22:53:01] Waiting for server health (attempt 1)...
+[22:56:38] Server healthy! (attempt 1)
+[22:57:06] Warmup OK, engine responsive (attempt 1)
+[22:57:08] Benchmarking at http://172.17.0.3:8000 ...
+[22:57:14]   hard run 1: 256 tok in 5696ms = 44.9 tok/s
+[22:57:19]   hard run 2: 256 tok in 5637ms = 45.4 tok/s
+[22:57:25]   hard run 3: 256 tok in 5636ms = 45.4 tok/s
+[22:57:28]   easy run 1: 184 tok in 3424ms = 53.7 tok/s
+[22:57:32]   easy run 2: 184 tok in 3616ms = 50.9 tok/s
+[22:57:35]   easy run 3: 184 tok in 3307ms = 55.6 tok/s
+[22:57:37]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[22:58:20]   conc round 1: 44.6 tok/s aggregate (1624 tok in 36.37746071815491s)
+[22:58:57]   conc round 2: 44.8 tok/s aggregate (1624 tok in 36.21885895729065s)
+[22:59:34]   conc round 3: 43.0 tok/s aggregate (1624 tok in 37.77410817146301s)
+[22:59:34] Recording: | 80 | 2026-08-21 22:52 |  8conc_mtp8_seqs1 | 45.4 hard / 53.7 easy / 44.6 conc×8 agg | ✅ | Config: MTP8, mem=0.85, seqs=1, batched=2048, modellen=4096, conc=8.
+[22:59:34] Done. hard=45.4 easy=53.7 conc=44.6 coherent=✅
+[22:59:35] Git committed and pushed (if possible). Iteration complete.
+[23:27:42] Iteration: KNOB=12conc_mtp8_seqs1 MTP=8 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=12
+[23:27:42] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_12conc_mtp8_seqs1.sh
+[23:27:42] === Container start attempt 1/2 ===
+[23:27:48] Starting container with knob 12conc_mtp8_seqs1 (attempt 1)...
+[23:27:51] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[23:27:51] Waiting for server health (attempt 1)...
+[23:29:52] Server healthy! (attempt 1)
+[23:30:21] Warmup OK, engine responsive (attempt 1)
+[23:30:23] Benchmarking at http://172.17.0.3:8000 ...
+[23:30:28]   hard run 1: 256 tok in 5520ms = 46.4 tok/s
+[23:30:34]   hard run 2: 256 tok in 5489ms = 46.6 tok/s
+[23:30:39]   hard run 3: 256 tok in 5620ms = 45.6 tok/s
+[23:30:43]   easy run 1: 184 tok in 3507ms = 52.5 tok/s
+[23:30:46]   easy run 2: 184 tok in 3310ms = 55.6 tok/s
+[23:30:50]   easy run 3: 184 tok in 3426ms = 53.7 tok/s
+[23:30:52]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[23:31:54]   conc round 1: 44.5 tok/s aggregate (2436 tok in 54.68211078643799s)
+[23:32:49]   conc round 2: 44.3 tok/s aggregate (2436 tok in 54.97622632980347s)
+[23:33:44]   conc round 3: 43.8 tok/s aggregate (2436 tok in 55.5914192199707s)
+[23:33:44] Recording: | 81 | 2026-08-21 23:27 |  12conc_mtp8_seqs1 | 46.4 hard / 53.7 easy / 44.3 conc×12 agg | ✅ | Config: MTP8, mem=0.85, seqs=1, batched=2048, modellen=4096, conc=12.
+[23:33:44] Done. hard=46.4 easy=53.7 conc=44.3 coherent=✅
+[23:33:45] Git committed and pushed (if possible). Iteration complete.
+[23:35:56] Iteration: KNOB=16conc_mtp8_seqs1 MTP=8 MEM=0.85 SEQS=1 BATCHED=2048 MODELLEN=4096 CONC=16
+[23:35:56] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_16conc_mtp8_seqs1.sh
+[23:35:56] === Container start attempt 1/2 ===
+[23:36:01] Starting container with knob 16conc_mtp8_seqs1 (attempt 1)...
+[23:36:04] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[23:36:04] Waiting for server health (attempt 1)...
+[23:38:05] Server healthy! (attempt 1)
+[23:38:34] Warmup OK, engine responsive (attempt 1)
+[23:38:36] Benchmarking at http://172.17.0.3:8000 ...
+[23:38:42]   hard run 1: 256 tok in 5608ms = 45.6 tok/s
+[23:38:48]   hard run 2: 256 tok in 5574ms = 45.9 tok/s
+[23:38:53]   hard run 3: 256 tok in 5457ms = 46.9 tok/s
+[23:38:57]   easy run 1: 184 tok in 3430ms = 53.6 tok/s
+[23:39:00]   easy run 2: 184 tok in 3487ms = 52.8 tok/s
+[23:39:04]   easy run 3: 184 tok in 3738ms = 49.2 tok/s
+[23:39:06]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[23:40:24]   conc round 1: 45.4 tok/s aggregate (3248 tok in 71.53063178062439s)
+[23:41:35]   conc round 2: 45.7 tok/s aggregate (3248 tok in 71.03783750534058s)
+[23:42:49]   conc round 3: 44.3 tok/s aggregate (3248 tok in 73.27158260345459s)
+[23:42:49] Recording: | 82 | 2026-08-21 23:35 |  16conc_mtp8_seqs1 | 45.9 hard / 52.8 easy / 45.4 conc×16 agg | ✅ | Config: MTP8, mem=0.85, seqs=1, batched=2048, modellen=4096, conc=16.
+[23:42:49] Done. hard=45.9 easy=52.8 conc=45.4 coherent=✅
+[23:42:49] Git committed and pushed (if possible). Iteration complete.
+[23:43:06] Iteration: KNOB=4conc_mtp5_seqs2 MTP=5 MEM=0.80 SEQS=2 BATCHED=2048 MODELLEN=4096 CONC=4
+[23:43:06] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_4conc_mtp5_seqs2.sh
+[23:43:06] === Container start attempt 1/2 ===
+[23:43:11] Starting container with knob 4conc_mtp5_seqs2 (attempt 1)...
+[23:43:14] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[23:43:14] Waiting for server health (attempt 1)...
+[23:46:48] Server healthy! (attempt 1)
+[23:47:17] Warmup OK, engine responsive (attempt 1)
+[23:47:19] Benchmarking at http://172.17.0.3:8000 ...
+[23:47:23]   hard run 1: 256 tok in 4710ms = 54.4 tok/s
+[23:47:28]   hard run 2: 256 tok in 4305ms = 59.5 tok/s
+[23:47:32]   hard run 3: 256 tok in 4334ms = 59.1 tok/s
+[23:47:35]   easy run 1: 184 tok in 2689ms = 68.4 tok/s
+[23:47:37]   easy run 2: 184 tok in 2643ms = 69.6 tok/s
+[23:47:40]   easy run 3: 184 tok in 2856ms = 64.4 tok/s
+[23:47:42]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[23:48:07]   conc round 1: 94.8 tok/s aggregate (812 tok in 8.56973123550415s)
+[23:48:26]   conc round 2: 42.9 tok/s aggregate (812 tok in 18.93528437614441s)
+[23:48:35]   conc round 3: 89.8 tok/s aggregate (812 tok in 9.041857481002808s)
+[23:48:35] Recording: | 83 | 2026-08-21 23:43 | ⭐ 4conc_mtp5_seqs2 | 59.1 hard / 68.4 easy / 89.8 conc×4 agg | ✅ | NEW BEST single-stream hard (59.1 vs 58.4). Config: MTP5, mem=0.80, seqs=2, batched=2048, modellen=4096, conc=4.
+[23:48:35] Done. hard=59.1 easy=68.4 conc=89.8 coherent=✅
+[23:48:35] NEW BEST detected — updating Current Best table in HILLCLIMB.md
+[23:48:35] Git committed and pushed (if possible). Iteration complete.
+[23:50:19] Iteration: KNOB=8conc_mtp5_seqs2 MTP=5 MEM=0.80 SEQS=2 BATCHED=2048 MODELLEN=4096 CONC=8
+[23:50:19] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp5_seqs2.sh
+[23:50:19] === Container start attempt 1/2 ===
+[23:50:25] Starting container with knob 8conc_mtp5_seqs2 (attempt 1)...
+[23:50:28] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[23:50:28] Waiting for server health (attempt 1)...
+[23:52:28] Server healthy! (attempt 1)
+[23:52:54] Warmup OK, engine responsive (attempt 1)
+[23:52:56] Benchmarking at http://172.17.0.3:8000 ...
+[23:53:01]   hard run 1: 256 tok in 4956ms = 51.7 tok/s
+[23:53:05]   hard run 2: 256 tok in 4594ms = 55.7 tok/s
+[23:53:10]   hard run 3: 256 tok in 4602ms = 55.6 tok/s
+[23:53:13]   easy run 1: 184 tok in 2811ms = 65.5 tok/s
+[23:53:15]   easy run 2: 184 tok in 2660ms = 69.2 tok/s
+[23:53:18]   easy run 3: 184 tok in 2868ms = 64.2 tok/s
+[23:53:20]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[23:54:07]   conc round 1: 51.7 tok/s aggregate (1624 tok in 31.430471181869507s)
+[23:54:26]   conc round 2: 86.4 tok/s aggregate (1624 tok in 18.79097819328308s)
+[23:54:44]   conc round 3: 91.6 tok/s aggregate (1624 tok in 17.72152090072632s)
+[23:54:44] Recording: | 84 | 2026-08-21 23:50 | ⭐ 8conc_mtp5_seqs2 | 55.6 hard / 65.5 easy / 86.4 conc×8 agg | ✅ | Config: MTP5, mem=0.80, seqs=2, batched=2048, modellen=4096, conc=8.
+[23:54:44] Done. hard=55.6 easy=65.5 conc=86.4 coherent=✅
+[23:54:44] Git committed and pushed (if possible). Iteration complete.
+[23:57:29] Iteration: KNOB=4conc_mtp8_seqs2 MTP=8 MEM=0.80 SEQS=2 BATCHED=2048 MODELLEN=4096 CONC=4
+[23:57:29] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_4conc_mtp8_seqs2.sh
+[23:57:29] === Container start attempt 1/2 ===
+[23:57:34] Starting container with knob 4conc_mtp8_seqs2 (attempt 1)...
+[23:57:37] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[23:57:37] Waiting for server health (attempt 1)...
+[00:01:14] Server healthy! (attempt 1)
+[00:01:40] Warmup OK, engine responsive (attempt 1)
+[00:01:42] Benchmarking at http://172.17.0.3:8000 ...
+[00:01:47]   hard run 1: 256 tok in 5312ms = 48.2 tok/s
+[00:01:53]   hard run 2: 256 tok in 5599ms = 45.7 tok/s
+[00:01:58]   hard run 3: 256 tok in 5505ms = 46.5 tok/s
+[00:02:02]   easy run 1: 184 tok in 3337ms = 55.1 tok/s
+[00:02:05]   easy run 2: 184 tok in 3514ms = 52.4 tok/s
+[00:02:09]   easy run 3: 184 tok in 3178ms = 57.9 tok/s
+[00:02:10]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[00:02:45]   conc round 1: 48.1 tok/s aggregate (812 tok in 16.867233991622925s)
+[00:02:55]   conc round 2: 81.0 tok/s aggregate (812 tok in 10.028884172439575s)
+[00:03:06]   conc round 3: 74.5 tok/s aggregate (812 tok in 10.898091554641724s)
+[00:03:06] Recording: | 85 | 2026-08-21 23:57 |  4conc_mtp8_seqs2 | 46.5 hard / 55.1 easy / 74.5 conc×4 agg | ✅ | Config: MTP8, mem=0.80, seqs=2, batched=2048, modellen=4096, conc=4.
+[00:03:06] Done. hard=46.5 easy=55.1 conc=74.5 coherent=✅
+[00:03:06] Git committed and pushed (if possible). Iteration complete.
+[00:04:38] Iteration: KNOB=8conc_mtp8_seqs2 MTP=8 MEM=0.80 SEQS=2 BATCHED=2048 MODELLEN=4096 CONC=8
+[00:04:38] Entrypoint written to /home/sero/qwen38-b70/entrypoints/ep_8conc_mtp8_seqs2.sh
+[00:04:38] === Container start attempt 1/2 ===
+[00:04:44] Starting container with knob 8conc_mtp8_seqs2 (attempt 1)...
+[00:04:47] Container IP: 172.17.0.3, health URL: http://172.17.0.3:8000/health (attempt 1)
+[00:04:47] Waiting for server health (attempt 1)...
+[00:06:50] Server healthy! (attempt 1)
+[00:07:16] Warmup OK, engine responsive (attempt 1)
+[00:07:18] Benchmarking at http://172.17.0.3:8000 ...
+[00:07:24]   hard run 1: 256 tok in 5689ms = 45.0 tok/s
+[00:07:30]   hard run 2: 256 tok in 5647ms = 45.3 tok/s
+[00:07:35]   hard run 3: 256 tok in 5414ms = 47.3 tok/s
+[00:07:39]   easy run 1: 184 tok in 3560ms = 51.7 tok/s
+[00:07:42]   easy run 2: 184 tok in 3465ms = 53.1 tok/s
+[00:07:46]   easy run 3: 184 tok in 3351ms = 54.9 tok/s
+[00:07:48]   coherence: ✅ (51×37=We need answer user's simple arithmetic: 51*37. Compute: 50*, capital=We need answer user's request: "What is )
+[00:08:22]   conc round 1: 82.2 tok/s aggregate (1624 tok in 19.751523733139038s)
+[00:08:43]   conc round 2: 80.1 tok/s aggregate (1624 tok in 20.283014059066772s)
+[00:09:03]   conc round 3: 81.9 tok/s aggregate (1624 tok in 19.8239643573761s)
+[00:09:03] Recording: | 86 | 2026-08-22 00:04 |  8conc_mtp8_seqs2 | 45.3 hard / 53.1 easy / 81.9 conc×8 agg | ✅ | Config: MTP8, mem=0.80, seqs=2, batched=2048, modellen=4096, conc=8.
+[00:09:03] Done. hard=45.3 easy=53.1 conc=81.9 coherent=✅
+[00:09:03] Git committed and pushed (if possible). Iteration complete.
