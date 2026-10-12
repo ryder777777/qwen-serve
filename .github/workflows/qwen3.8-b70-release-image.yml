@@ -1,11 +1,14 @@
-name: release-image
+name: qwen3.8-b70-release-image
+
 on:
   workflow_dispatch: {}
+
 permissions:
   contents: read
   packages: write
   id-token: write
   attestations: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,7 +29,7 @@ jobs:
         id: push
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
-          context: .
+          context: qwen3.8/b70
           push: true
           tags: ghcr.io/0xsero/qwen38-b70-attested:v1
           provenance: mode=max
