@@ -241,7 +241,7 @@ This is host-kernel-level and not part of the container. Without Resizable BAR, 
 ## Build from source
 
 ```bash
-git clone https://github.com/0xSero/qwen38-3090-sglang.git
+git clone https://github.com/sybil-solutions/qwen-serve.git
 cd qwen38-3090-sglang
 docker build -t qwen38-3090 .
 docker run --gpus all --shm-size 32g -p 8000:8000 -v $PWD/models:/models -e TP=4 qwen38-3090
