@@ -17,7 +17,7 @@ pins the published images used by its recipes; publication does not imply anonym
 | Workflow | Instance | What it does |
 | --- | --- | --- |
 | [`.github/workflows/qwen3.8-3090-sglang-validate.yml`](.github/workflows/qwen3.8-3090-sglang-validate.yml) | 3090-sglang | entrypoint test + build only (`push: false`) |
-| [`.github/workflows/qwen3.8-b70-release-image.yml`](.github/workflows/qwen3.8-b70-release-image.yml) | b70 | build, push and attest `ghcr.io/0xsero/qwen38-b70-attested:v1` |
+| [`.github/workflows/qwen3.8-b70-release-image.yml`](.github/workflows/qwen3.8-b70-release-image.yml) | b70 | build, push and attest `ghcr.io/sybil-solutions/qwen38-b70-attested:v1` |
 
 ### Verification on main (2026-10-12)
 
@@ -28,11 +28,12 @@ pins the published images used by its recipes; publication does not imply anonym
 | 3090 validation (push) | [38225729200](https://github.com/sybil-solutions/qwen-serve/actions/runs/38225729200) | `e21b0229727fed42e4d5f12ead5d9687b7ff9545` | **Success**: entrypoint validation and Linux amd64 image build |
 
 The release error was `denied: permission_denied: The requested installation does not exist`.
-The workflow uses this organization's `GITHUB_TOKEN` to push to the user-owned `0xsero` namespace;
-the repository had no publishing secret configured at audit time. Publishing requires package write access
-to that namespace, or an explicit migration to an organization-owned package. Neither a credential change
-nor an image migration is part of this pin audit. The failed run published no replacement image, so the
-previous public attested digest remains canonical. Validation is build-only, not a GPU inference check.
+That run used this organization's `GITHUB_TOKEN` to push to the user-owned `0xsero` namespace.
+The publisher now targets `ghcr.io/sybil-solutions/qwen38-b70-attested` for both the image and its
+attestation, so it uses the organization's existing `packages: write` permission without adding a PAT.
+The failed main run published no replacement image. The registry's existing public `0xsero` digest is
+retained until a replacement has been published and verified; old pins do not change when a tag moves.
+Validation is build-only, not a GPU inference check.
 
 ## Registry digest audit (2026-10-12)
 
