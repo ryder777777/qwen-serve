@@ -51,6 +51,19 @@ and `td/experts_index.json` (27 MB) are what you need (plus the engine log, whic
 
 **Strata CUDA kernels fail with `cublas_v2.h` errors.** `~/cuda-13.4/include/cublas_v2.h` must be the shim's minimal header (`shim/include/cublas_v2.h`).
 
+**Docker build stops at apt: `Version '...' for '...' was not found`.** The Dockerfile pins the apt tools by version and Ubuntu removes superseded versions from its archive. Read the current ones
+(`docker run --rm ubuntu:24.04@sha256:534baea6... sh -c 'apt-get update -qq; apt-cache policy g++ make cmake ninja-build python3 xz-utils file git ca-certificates curl'`), update the pins in the Dockerfile (`toolchain` and
+`fetcher` stages), rebuild, and compare the fatbin hashes the build prints against the deployed ones (it fails on a mismatch).
+
+**`docker compose run --rm build` is very slow or `exec format error` on a PC.** The image is `linux/arm64` (NVIDIA's `linux-sbsa` redist tarballs): native on Apple silicon, emulated elsewhere (QEMU/binfmt needed, several times slower).
+
+**`./run.sh`: `host.ninja failed` with `no matching function for call to '__ldcs'`.** The engine's CUDA host compile was done with Apple clang 21 (CLT 26.6, the mini's); older clangs (17 here) lack the overloads. Point `CLANG_BIN` at an LLVM >= 21
+(`CLANG_BIN=/opt/homebrew/opt/llvm@22/bin ./run.sh`); only the engine and `libstrata_exl3` use it. With clang <= 17, `run.sh` also writes an empty `curand_mtgp32_kernel.h` into `~/cuda-12.8/include` (the old CUDA wrapper force-includes it).
+
+**`./run.sh`: `no Metal compiler`.** The Command Line Tools have no `metal`: run `./run.sh --build-metal` on a Mac that does (Xcode, or `xcodebuild -downloadComponent MetalToolchain`) and copy `./out/metal` to the mini's `./out/metal`.
+
+**`./run.sh`: `... differs from the bundle's copy: kept`.** `run.sh` never overwrites an installed file that differs from what it would install (the mini's live `~/shim` is such a case); `--force` replaces, otherwise the difference is only reported.
+
 ## Server and benchmarks
 
 **`bench/final_vision.py`: `No module named 'PIL'`.** Run it with `~/strata/.venv/bin/python` (pillow is in Strata's requirements). The `final_lru` log contains exactly this error.

@@ -15,7 +15,41 @@ Decode: 3 fixed prompts, up to 300 tokens, run twice right after a server restar
 Prefill: a document prompt with a random first line so no prefix cache applies, `max_tokens` 2, tok/s = `prompt_n / prompt_ms`
 (`bench/ls_pf.py`, `bench/final_long.py pf`). Needle: `bench/final_long.py needle TOKENS DEPTH` (Strata's `tools/needle_bench.py` haystack).
 
-## 1. Final configuration: `configs/strata-exl3-full512-final-g4-lru.json.tmpl`
+## 0. Latest configuration: `configs/strata-exl3-full512-final-g4-lru-ht.json.tmpl` (host-tail step)
+
+= the configuration of section 1 plus `TGCU_POKE1=15` (GPPut / doorbell / hold-word as one control transfer), `TGCU_FREE_DEFER=1` (cudaFree hands the block back when its submission completed instead of a
+full synchronize per free), `TGCU_H2D_RELAX=1` (a bulk push waits only for the launches whose parameters fall inside its destination range), `TGCU_TS_G=150` (compute channel group time slice
+1024 -> 150 us: the copy engine is no longer slowed by a busy GPU during the decode window), `STRATA_PF_SPLITF=1` with `STRATA_PF_SPLITF_MIN=4` (patch `0005`: the split order only for groups of 4+ chunks) and
+`EXL3M_WAIT_SPIN=1` (decode Metal jobs poll the command buffer). The sources of these changes are in the repo (`shim/tgcu*.py` and `exl3/metal` carry them, `patches/strata/0005`, the per-step diffs in `patches/history/hosttail/`);
+`libexl3metal.dylib` rebuilt from the repo has the same sha256 as the deployed one (`e38a011c79933a8e...`), the patched `shim/*.py` files and `prefill.cpp` are byte-identical to the deployed ones (checked 2026-10-12).
+Run 2026-10-12 07:26:46Z to 07:34:39Z on a freshly restarted server, same weights/placement/memory layout as section 1 (7,400 VRAM slots, 716 MiB free, LRU 5,600 slots).
+Source: [`results/raw/hosttail/ht_final.log`](../results/raw/hosttail/ht_final.log) (`split_HF_{a,b,c}_{0,1,2}.txt` and `split_HT9_st_*.txt` in the same directory are the generated texts of the three decode probes of the tuning/instrumented runs, not timings).
+
+### 0.1 Decode, c1, MTP (tok/s)
+
+| prompt | run 1 | run 2 | after the prefill rows + 32K needle | MTP drafts accepted/proposed (run 1) |
+|---|---|---|---|---|
+| 1: "write is_prime and explain it" (29 prompt tokens, 300 out) | **18.2** | 17.9 | 17.5 | 213/258 |
+| 2: "explain how an MoE picks experts" (35 prompt tokens, 253 out) | **21.4** | **21.3** | 21.5 | 134/225 |
+| 3: "lighthouse keeper story" (29 prompt tokens, 292 out) | **18.1** | 17.7 | 17.5 | 138/260 |
+
+Time to first token for these 29-35 token prompts is 2.1-2.5 s. (Section 1 was 16.8 / 19.0 / 16.3 and 16.6 / 19.0 / 16.0.) The stats-instrumented rerun of the same config
+([`ht9_st.log`](../results/raw/hosttail/ht9_st.log), `STRATA_PF_MAC_STATS` + `STRATA_PF_MAC_RDSTATS` on): 18.6 / 21.4 / 17.9.
+
+### 0.2 Prefill and context, c1 (tok/s)
+
+| prompt tokens | prefill speed | decode over the answer | note |
+|---|---|---|---|
+| 3,783 | 277.3, 333.6 | not measured | two runs, different random first line (276.2, 325.8 in `ht9_st.log`) |
+| 7,905 | 427.8 (cold), 481.3 (warm) | not measured | 431.3, 482.1 in `ht9_st.log`; the cold-vs-warm gap (~2.1 s) is layers 0-1 waiting for SSD reads of experts that are not in the LRU |
+| 17,610 | 406.8 | not measured | 9 chunks -> groups of 3, `STRATA_PF_SPLITF_MIN=4` leaves the split order off there |
+| 33,253 (32K needle) | 396.0 (TTFT 84.0 s) | 17.3 tok/s (124 tokens, MTP 67/112) | needle `meadow-copper-504`, depth 50 %, found |
+| 97,461 / 188,835 | 374.9 / 382.4 (earlier config) | 16.5 / 13.9 (earlier config) | **not re-run** on this config, see section 1.3 |
+
+Text parity: 24 greedy tokens at 3.8K and 7.9K are byte-identical to the reference run with the host-tail env off ([`ht_ex2_ts150.log`](../results/raw/hosttail/ht_ex2_ts150.log)). Vision: the `final_vision.py` step of
+`ht_final.log` aborted (`No module named 'PIL'`); the plan notes report the image answers (NYT photo, bar chart) as OK on this config, there is no raw log of that in this repo. Prefill >= 500 tok/s was **not reached** (best 481 warm).
+
+## 1. Previous configuration: `configs/strata-exl3-full512-final-g4-lru.json.tmpl`
 
 Run `final_lru` on 2026-10-12, 06:12:48Z to 06:21:32Z, started on a freshly restarted server. 7,400 expert slots in VRAM (12.84 GiB),
 716 MiB of VRAM free after load, Metal LRU of 5,600 registered slots (10.46 GB), 0.2 GiB static RAM tier, prefill group G=4.
@@ -181,12 +215,15 @@ Run by `scripts/verify-card-free.sh` on the mini; raw output in [`results/verifi
 | `pack_td.py index` | regenerated headers byte-identical to the existing index (sha256 `2dc6b0ce...`, `0ea6ec8c...`) |
 | `pack_td.py sync 24` into a temp pack (0.95 GB fetched from the pinned revision, 76 s) | section sha256 `80eb9002da51...` = manifest layer 24; NEON forward vs reference rel RMS 5.2e-4 |
 | `exl3_strata_pf.fatbin`, `exl3_strata_recon.fatbin` rebuilt with nvcc 13.4 in the container | sha256 identical to the deployed fatbins |
-| `exl3_strata.fatbin` rebuilt | same size (662,480 B), different sha256 in each of three build directories (`7d8920c4`, `bb0840d2`, deployed `d19f0e17`), 14 bytes differ near the start: a path-dependent id [INFERENCE] |
+| `exl3_strata.fatbin` rebuilt | its id depends on the build path: built from `/Users/sero/exl3` it is **byte-identical** to the deployed one (`d19f0e17...`), from `/build/exl3` it is `82e480e5...` (same size 662,480 B; the earlier three different hashes were three different directories). The Docker build uses `/Users/sero/exl3` ([reproduce.md](reproduce.md#10-one-click-what-was-run)) |
 | `libstrata_exl3.dylib` host library rebuilt (`exl3/strata_m4/build.sh`) | same size (4,450,936 B) and exported symbols as the deployed one; sha differs because it embeds the fatbin above |
-| `tgcu_builtin.fatbin` rebuilt with nvcc 13.4 | same size (630,224 B), different bytes (same path effect); the exact deployed file is kept in `shim/prebuilt/` |
+| `tgcu_builtin.fatbin` / `tgcu_libc.cubin` rebuilt | **byte-identical** to `shim/prebuilt/` and the deployed files ([reproduce.md](reproduce.md#10-one-click-what-was-run)): `nvcc -std=c++17 -O3 -Xptxas -v --fatbin -arch=sm_86 -no-compress -x cu tgcu_builtin.cu` (an earlier try without `-Xptxas -v` differed only in the command line stored in the fatbin header, not in the path) and `ptxas -arch=sm_86 -c tgcu_libc.ptx` |
 | `libcudart.dylib` shim compiled from `shim/tgcudart.cpp` + `tgcublas.cpp` | compiles; exported symbols identical to the deployed one (136); 121,488 B vs 138,944 B (build flags not recorded; about 15 flag sets tried, none matched the size). The source is the `hs2` snapshot of `tgcudart.cpp`: the copy left in the mini's `~/shim` predates the pre-armed handshake and lacks six exported `tgcuHs*` symbols the deployed dylib has |
 | `strata-vision-metal` built from the public tag + `patches/vision` + llama.cpp `3cf03257f` (38 s) | builds; same size as the deployed binary (8,077,952 B), sha256 differs (signature); **not run** against the mmproj |
-| full engine rebuild (CMake configure in the container, `macbuild.py`, ninja) | **not re-run** (it would load the mini while it serves) |
+| full engine rebuild (CMake configure in the container, `macbuild.py`, ninja) | device half re-run in the Docker container, host half on a driver Mac (not the mini); never run: see [reproduce.md section 10](reproduce.md#10-one-click-what-was-run) |
+| Docker build bundle (`docker compose build --no-cache build`, 3 min 4 s, then `docker compose run --rm build`) | EXL3 fatbins + `tgcu_builtin.fatbin` + `tgcu_libc.cubin` byte-identical to the deployed files; Strata engine device code: 63 fatbins, 59 byte-identical to the deployed ones in every one of four builds, 4 vary run to run (nvcc anonymous-namespace ids) |
+| `scripts/test-gates.sh` | ALL GATES OK: wrong hash, corrupted byte, unknown command and a failing `verify-card-free.sh` step all exit nonzero (the old `pack_td.py verify` printed `VERIFY FAILED` and exited 0) |
+| `./run.sh --check` on a driver Mac (empty install root) | 53 ok, 13 warnings, 0 failures; engine host build with LLVM 22 only (Apple clang 17 fails) |
 
 ## 9. Exact, rounding-level, approximate
 

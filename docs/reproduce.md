@@ -5,6 +5,9 @@ results (2026-10-12). Anything marked **not pinned** could not be recovered from
 reconstructed from build files and logs but not executed again for this repo. Steps that were re-run card-free are listed in
 [results.md](results.md) section 8 and are runnable with `scripts/verify-card-free.sh`.
 
+**Automated path:** `docker compose run --rm build` (the Linux/CUDA half, pinned) followed by `./run.sh` on the Mac does sections 2-6 below in one go; what was run and what was not is in [section 10](#10-one-click-what-was-run).
+The numbered steps remain the manual reference.
+
 Paths: `$HOME` is the mini's home. The shim must live in `$HOME/shim`, the EXL3 libraries in `$HOME/exl3/{cpu,metal,strata_m4}` (the engine
 `dlopen`s them from there), Strata in `$HOME/strata`, the engine build in `$HOME/strata-mac`, models in `$HOME/models/qwen38fn`.
 
@@ -33,8 +36,9 @@ Paths: `$HOME` is the mini's home. The shim must live in `$HOME/shim`, the EXL3 
 | Strata Python env | `~/strata/.venv`, Python 3.12, Strata's own `requirements.txt` (numpy 2.5.3, jinja2 3.1.6, regex 2026.9.10, pyyaml 6.0.3, tqdm 4.70.1, requests 2.34.2, cmake 4.4.3, ninja 1.13.2, pillow 12.3.0, psutil 7.2.2, ...) | `.venv` dist-info matches `requirements.txt` |
 | SIMDe (x86 intrinsics on arm64 for Strata's CPU kernels) | git `0ff5341927e1` at `~/simde`, no tag | `git rev-parse` (the commit's upstream URL **not pinned**; it is `simd-everywhere/simde`) |
 | CUDA headers for clang (host side) | 12.8.93: `shim/cuda-redist-12.8.txt` (cuda_cudart 12.8.90, cuda_nvcc 12.8.93, cuda_cccl 12.8.90, cuda_profiler_api 12.8.90, `linux-sbsa` redist tarballs) merged into `~/cuda-12.8` | `~/cuda128.txt`, `version.json` |
-| nvcc for the device side | 13.4.92: `shim/cuda-redist-13.4.txt` (cuda_nvcc, cuda_cudart, cuda_crt, libnvvm, cuda_cuobjdump, cuda_nvdisasm, cuda_profiler_api 13.4.92, cccl 13.3.4.3.1) merged into `~/cuda-13.4`; runs in the container (they are Linux arm64 binaries) | `~/cuda13_paths.txt` |
-| container | colima v0.10.3 (git `00f6c297e92a`), Docker 29.9.0 (build f415da8); image `strata-cuda:latest` = `sha256:431fed7e83df...`, built from `shim/docker/Dockerfile.strata-cuda` (ubuntu:24.04 + g++, make, cmake, ninja-build, python3, xz-utils, file, git, ca-certificates) | `docker images`; apt package versions inside the image and the VM's CPU/RAM settings **not pinned** |
+| nvcc for the device side | 13.4.92: `shim/cuda-redist-13.4.txt` (cuda_nvcc, cuda_cudart, cuda_crt, libnvvm, cuda_cuobjdump, cuda_nvdisasm, cuda_profiler_api 13.4.92, cccl 13.3.4.3.1) merged into `~/cuda-13.4`; runs in the container (they are Linux arm64 binaries); the tarballs' sha256 are in `shim/cuda-redist-13.4.sha256` (same for 12.8: `shim/cuda-redist-12.8.sha256`, release 12.8.1) | `~/cuda13_paths.txt`, NVIDIA `redistrib_13.4.2.json` / `redistrib_12.8.1.json` |
+| container (one-click) | root `Dockerfile`: `ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55` (linux/arm64), apt tools pinned by version (g++ 4:13.2.0-7ubuntu1, cmake 3.28.3-1build7, ninja-build 1.11.1-2, python3 3.12.3-0ubuntu2.1, git 1:2.43.0-1ubuntu7.3, ...), CUDA 13.4.92 from NVIDIA's redist tarballs pinned by sha256 (`shim/cuda-redist-13.4.sha256`, from `redistrib_13.4.2.json`), Strata by commit; built with Docker Desktop 29.1.3 on an Apple-silicon Mac | `Dockerfile`, `docker compose build` |
+| container (mini, manual flow) | colima v0.10.3 (git `00f6c297e92a`), Docker 29.9.0 (build f415da8); image `strata-cuda:latest` = `sha256:431fed7e83df...`, built from `shim/docker/Dockerfile.strata-cuda` (ubuntu:24.04 + g++, make, cmake, ninja-build, python3, xz-utils, file, git, ca-certificates) | `docker images`; apt package versions inside the image and the VM's CPU/RAM settings **not pinned** |
 | model | turboderp/Qwen3.8-Flash-Next-exl3, branch `3.05bpw_h5_ng5`, `69e33439ae950f17bcbe95c98f117d80f759ab6d` | `pack_td.py`, HF refs API 2026-10-12 |
 | dense part | ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF, `IQ3_S/` two shards + `mmproj-Qwen3.8-Flash-Next-BF16.gguf` | see section 4; **revision not pinned** |
 | MTP draft | Qwen/Qwen3.8-Flash-Next `de4b8e4d43b917e7706784d8bb445c9af86a3540` | `results/provenance/mtp-inventory.json` |
@@ -166,7 +170,7 @@ SIMDe, linked against the shim's `libcudart`), by `shim/macbuild.py`.
 export PATH=~/.local/bin:$PATH
 docker run --rm -v $HOME:$HOME -w $HOME -e H=$HOME strata-cuda:latest sh -c 'cmake -S $H/strata -B $H/strata-linux -G Ninja \
    -DCMAKE_BUILD_TYPE=Release -DSTRATA_ENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DCMAKE_CUDA_COMPILER=$H/cuda-13.4/bin/nvcc \
-   && cd $H/strata-linux && ninja -t commands strata > strata_cmds.txt'      # options from strata-linux/CMakeCache.txt; the invocation itself was not recorded
+   && cd $H/strata-linux && ninja -t commands strata > strata_cmds.txt'      # the options are those of the deployed strata-linux/CMakeCache.txt; docker/build-engine.sh runs this configure (+ -DSTRATA_BUILD_TESTS=OFF -DCUDAToolkit_ROOT=$H/cuda-13.4, both read from that cache) and produced 63 nvcc rules, as the deployed one
 python3 ~/shim/macbuild.py                                                       # writes ~/strata-mac/{device,host}.ninja (63 nvcc rules, 135 host rules)
 docker run --rm -v $HOME:$HOME -w $HOME/strata-mac strata-cuda:latest ninja -f device.ninja
 ~/strata/.venv/bin/ninja -C ~/strata-mac -f host.ninja                           # -> ~/strata-mac/strata
@@ -207,9 +211,39 @@ bash bench/final_lru.sh                           # the whole sequence that prod
 
 ## 8. What cannot be rebuilt from this repo alone
 
-- the dock/PSU model and firmware, the `libamd_comgr.dylib` source, the CUDA toolkit merge procedure, colima/docker installation, SIMDe's upstream URL (pinned by commit);
-- the exact flags of the deployed `libcudart.dylib` (the rebuilt one exports the same symbols), of `tgcu_libc.cubin` (shipped prebuilt, 3,200 B) and the build path of
-  `exl3_strata.fatbin` (rebuilds are functionally the same, bytes differ);
-- the Strata CMake configure invocation (reconstructed), the full engine rebuild (not re-run);
-- the GGUF revision (size-matched only) and the routing calibration behind `profile.bin` (the file is shipped);
+- the dock/PSU model and firmware, the `libamd_comgr.dylib` source (and whether the NV backend needs it at all), colima/docker installation on the mini, SIMDe's upstream URL (pinned by commit);
+- the exact flags of the deployed `libcudart.dylib` (the rebuilt one exports the same symbols; its bytes differ). Recovered since the first version of this file: `tgcu_libc.cubin` is `ptxas -arch=sm_86 -c tgcu_libc.ptx`
+  and `tgcu_builtin.fatbin` is `nvcc -std=c++17 -O3 -Xptxas -v --fatbin -arch=sm_86 -no-compress` (both byte-identical, section 10); `exl3_strata.fatbin` is byte-identical when built at `/Users/sero/exl3` (the id is path-dependent);
+  the Strata CMake options come from the deployed `CMakeCache.txt`;
+- the full engine rebuild: the device half (63 fatbins) is now reproduced in the container (61 of 63 byte-identical to the deployed ones, section 10); the host half was built on a driver Mac, not on the mini, and the resulting `strata` binary was not run;
+- the deployed GGUF files themselves were never hashed (size-matched only); `docker/models.sha256` pins Hugging Face revision `ed59f92082b1e93c0e96d60a8b11aab089b52f09` with the LFS sha256 the API reports for it (sizes equal the deployed files'). The routing calibration behind `profile.bin` (the file is shipped);
 - the decode and prefill numbers need the card: nothing in the card-free checks measures them.
+
+## 10. One-click: what was run
+
+The flow is `docker compose run --rm build` (or `make`) -> `./out`, optionally `docker compose --profile fetch run --rm fetch all`, then `./run.sh` on the Mac. Files: `Dockerfile`, `docker-compose.yml`, `Makefile`, `docker/`
+(`build-device.sh`, `build-engine.sh`, `fetch.sh`, `models.sha256`), `run.sh`. Why Docker cannot run the server: the engine drives the 3090 through libusb (tinygrad NV) and computes cold experts with Metal; Docker on macOS is a Linux VM
+with neither Metal nor USB passthrough of this dock. Everything below was run on the driver Mac (MacBook Pro M1 Max (MacBookPro18,2), macOS 26.5, Docker Desktop 29.1.3 / linux/arm64, 10 CPUs, 8 GiB VM), 2026-10-12; no card, no dock, and the mini was only
+read (`ssh` + `shasum` of deployed files, no load, nothing written).
+
+| stage | status | evidence |
+|---|---|---|
+| `docker compose build --no-cache build` (apt pins, 8 CUDA 13.4.92 tarballs sha256-checked, Strata clone + 5 patches + vision patch, CMake configure, nvcc) | **run**, cold, 3 min 4 s | image `qwen38fn-build:local` |
+| `docker compose run --rm build` / `make build` | **run**, 12 s / 6 s (cached) | `./out`: 6,191 files, `SHA256SUMS`, `BUILD_INFO.txt` |
+| EXL3 fatbins `exl3_strata`, `_recon`, `_pf`; `tgcu_builtin.fatbin`; `tgcu_libc.cubin` | **run in the container**; all 5 **byte-identical to the deployed files** (the build fails on a mismatch); identical in two builds | `out/fatbins/SHA256SUMS`: `d19f0e17...` `bb7099ba...` `8baedf9c...` `d4139235...` `e36a0f87...` |
+| Strata engine device code (CMake configure + 63 nvcc rules -> 63 sm_86 fatbins, 60 s with 6 jobs) | **run in the container**; configure options and `device.ninja` identical to the deployed ones (63 rules); **59 of 63 fatbins byte-identical to the deployed ones in every build (four builds compared)**; 4 (`fused_gr`, `sampler`, `moe_mmq`, `kernels`) differ from build to build, also between two `-j 1` builds in separate containers: nvcc puts a per-compilation id into the names of anonymous-namespace kernels (`_GLOBAL__N__<hash>_..._<hash>_<line>`); for `moe_mmq` the SASS differs only in those names, for `sampler` the instruction count (16,416) and register usage are equal but register allocation/scheduling differ (329 instruction lines) | `out/engine/strata-mac-fatbins.sha256`, deployed list read from `~/strata-mac` on the mini |
+| `pack_td.py index/sync --no-neon --expect/verify/compare` in the fetch container, `EXPERT_LAYERS=24` | **run for one layer**: 0.95 GB fetched in 50 s, section sha256 `80eb9002da511ea3...` = manifest, `VERIFY OK`, `COMPARE OK` | `docker compose --profile fetch run --rm fetch experts` |
+| the same for all 48 layers (45.8 GB) | **not run** | |
+| `fetch dense`: size + sha256 against the Hugging Face LFS ids (revision `ed59f92082b1`) | **run for the mmproj only** (`DENSE_MATCH=mmproj`): sha256 `b1a82259...` OK, and a deliberately wrong hash makes it exit 1 (`.bad` file kept). The two GGUF shards (54.8 + 28.8 GB) were **not** hashed (a first run downloaded 28.7 GB of shard 1 before I stopped it; the resume with `curl -C -` worked) | |
+| `./run.sh --check` from an empty install root (`RUN_ROOT=/tmp/...`), Metal toolchain hidden to exercise the `./out/metal` path | **run**: 75 s, **53 ok, 13 warnings, 0 failures**, exit 0; a second run is a no-op (everything "present"/"up to date") | warnings: SDK 26.2 instead of 26.5, Python 3.12.13 instead of 3.12.15 (uv), no Metal compiler (used `./out/metal`), no USB dock, `libamd_comgr.dylib` absent, `libexl3cpu` sha differs from the deployed one (see below), curand stand-in header, models/packs absent (6 config paths missing) |
+| `./run.sh --build-metal` | **run** (here: 54 s): `libexl3metal.dylib` sha256 `e38a011c...` = the deployed one; `strata-vision-metal` 8,094,368 B | `out/metal/SHA256SUMS` |
+| engine host build (`macbuild.py` + `host.ninja`, 135 rules, link) | **run** on this Mac with Homebrew LLVM 22.1.8 (`CLANG_BIN`); with this Mac's Apple clang 17 it **fails** (`__ldcs`). The binary links `@rpath/libcudart.dylib`, rpath = install root. **Never run** | |
+| `./run.sh` without `--check`: starting the server | **not run** (no dock/card here, the mini is serving). The pieces it uses were smoke-tested with the mock engine: `--host`, `--port`, `STRATA_API_KEY` from the environment (401 without the key, 200 with it, the key is not in the log) | |
+| `iq_pack.py`, `mtp_fetch.py`, `mtp_pack.py`, `mtp_rt.py` (`run.sh` `build_packs`) | **not run** (need the 55 GB shard and a 5.2 GB range fetch); they are the commands of section 4 | |
+| `scripts/test-gates.sh` | **run**: ALL GATES OK (7 checks, including a wrong hash and a corrupted byte) | |
+
+Findings while doing this: (1) `exl3_strata.fatbin` is path-dependent (built at `/Users/sero/exl3` it equals the deployed one; at `/build/exl3` it does not), hence `BUILD_ROOT=/Users/sero` in the Dockerfile; (2) `tgcu_builtin.fatbin` and
+`tgcu_libc.cubin` are reproduced byte for byte (flags in section 8), the earlier "path effect" note was wrong: the shipped one was built with `-Xptxas -v`; (3) the deployed `libexl3cpu.dylib` (`9fe9cab5...`) was rebuilt here as `d874f168...`
+with SDK 26.2 and Apple clang 17.0.0 (the mini: SDK 26.5, Apple clang 21.0.0); which of the two differences causes it was not isolated; (4) the mini's CLT has no Metal compiler, so `libexl3metal` and `strata-vision-metal` come from
+`./run.sh --build-metal` on another Mac, as before; (5) the deployed `libamd_comgr.dylib` stays unexplained: the tinygrad NV backend imports without it here, but whether the engine needs it at run time is unknown;
+(6) the repo had lagged behind the measured configuration: the host-tail step (`patches/strata/0005`, `shim/tgcu*.py`, `exl3/metal`, `configs/...-ht.json.tmpl`) was added from the campaign's diffs and verified byte-identical to the deployed files.

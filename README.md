@@ -8,22 +8,36 @@ hottest experts and the attention; the mini computes the other experts on its ow
 The engine is [Strata](https://github.com/Niko1221/Strata) v0.1.41 plus the patches here, running on macOS through a CUDA-runtime shim ("tgcu") on
 tinygrad's NV backend.
 
+## One-click
+
+```sh
+docker compose run --rm build      # any machine with Docker (linux/arm64): the pinned CUDA 13.4 build -> ./out (fatbins, patched Strata, configure tree); 3 min cold on an M-series Mac, seconds when cached
+docker compose --profile fetch run --rm fetch all    # optional, ~130 GB: experts (sha256-checked against results/pack/exl3_pack.json) + dense GGUF and mmproj (sha256-checked)
+./run.sh                           # on the Mac mini: installs the bundle, builds the macOS libraries and the engine, renders the config, starts the server
+./run.sh --check                   # the same, without starting the engine or touching USB
+```
+
+The serving runtime is native macOS (the engine drives the 3090 over USB through libusb and computes the cold experts with Metal), and Docker on a Mac runs a Linux VM with no Metal and no
+USB passthrough of this dock, so Docker makes the build and the model download one command but cannot run the server; `./run.sh` is the one native step. Two Metal binaries need Xcode's Metal toolchain,
+which the mini's Command Line Tools lack: `./run.sh --build-metal` builds them on any Mac that has it (into `./out/metal`; copy that directory to the mini). What was run and what was not: [docs/reproduce.md](docs/reproduce.md#10-one-click-what-was-run).
+
 | prefill length | prefill speed | decode speed | kv cache | concurrency |
 |---|---|---|---|---|
-| 29-35 tokens (3 probe prompts) | TTFT 2.2-2.6 s | **16.8 / 19.0 / 16.3 tok/s** (second run 16.6 / 19.0 / 16.0) | 204,800 (k8v4) | 1 |
-| 3,783 | 277 and 330 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
-| 7,905 | 383 and 422 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
-| 8,218 | 346 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
-| 17,610 | 392 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
-| 33,253 | 378 tok/s | 15.9 tok/s (needle found) | 204,800 (k8v4) | 1 |
+| 29-35 tokens (3 probe prompts) | TTFT 2.1-2.5 s | **18.2 / 21.4 / 18.1 tok/s** (second run 17.9 / 21.3 / 17.7) | 204,800 (k8v4) | 1 |
+| 3,783 | 277 and 334 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
+| 7,905 | 428 tok/s cold, 481 tok/s warm | not measured at this length | 204,800 (k8v4) | 1 |
+| 17,610 | 407 tok/s | not measured at this length | 204,800 (k8v4) | 1 |
+| 33,253 | 396 tok/s | 17.3 tok/s (needle found) | 204,800 (k8v4) | 1 |
 | 97,461 | 375 tok/s | 16.5 tok/s (needle found) | 204,800 (k8v4) | 1 |
 | 188,835 | 382 tok/s | 13.9 tok/s (needle found) | 204,800 (k8v4) | 1 |
 
-Rows 1-6: final config, 2026-10-12 06:12-06:21Z, one restart, raw log [`results/raw/lru/final_lru.log`](results/raw/lru/final_lru.log). Where two prefill numbers
-are given they are two runs of the same prompt shape with different random first lines (no prefix cache). Rows 97K and 189K were measured on the previous
-config (LRU of 1,000 slots instead of 5,600; raw logs `results/raw/g4/lr_g4c_100k.log`, `final_g4.log`) and **not re-run** on the final one.
-Decode is greedy, MTP spec 4, c1; the three decode prompts are code, an explanation and a story (p2, the explanation, is the one that reaches 19.0).
-Vision: an image request is answered correctly (NYT front page photo, a bar chart); the answer on the final config is reported in the campaign log, the raw log is not in this repo.
+Rows 1-5: config `final-g4-lru-ht` (`configs/strata-exl3-full512-final-g4-lru-ht.json.tmpl`: the LRU config plus the host-tail step), 2026-10-12 07:26-07:34Z, one restart, raw log
+[`results/raw/hosttail/ht_final.log`](results/raw/hosttail/ht_final.log); the 33K needle (`meadow-copper-504`) is in the same log. Decode: two warm runs of the three probe prompts right after the restart (greedy, MTP spec 4, c1; code, an
+explanation and a story; the second prompt is the one that reaches 21). Prefill: where two numbers are given they are two runs of the same prompt shape with different random first lines (no prefix cache); the 7.9K pair is a
+cold and a warm run (the gap is the SSD reads of the first two layers' experts). A later rerun of this config with per-chunk stats switched on reproduces them (decode 18.6 / 21.4 / 17.9; prefill 276 / 326 at 3.8K, 431 cold / 482
+warm at 7.9K; [`results/raw/hosttail/ht9_st.log`](results/raw/hosttail/ht9_st.log)); no other change was applied in that run. Rows 97K and 189K were measured on the earlier LRU config
+(raw logs `results/raw/g4/lr_g4c_100k.log`, `final_g4.log`) and **not re-run** on this one. The vision encoder is configured, but the vision step of `ht_final.log` aborted (no Pillow in the system Python), so that log holds no
+image-answer proof; the earlier image answers (NYT front page photo, a bar chart) are in docs/results.md. Text parity of the host-tail changes (24 greedy tokens at 3.8K and 7.9K, byte-identical): `results/raw/hosttail/ht_ex2_ts150.log`.
 Every table with dates and source files: [docs/results.md](docs/results.md).
 
 **What is exact.** The weights: every routed expert of every layer is the turboderp checkpoint's trellis and scale tensors, byte for byte (each layer was range-fetched from the pinned
@@ -35,13 +49,13 @@ exllamav3 was measured for this system.
 
 **Gaps against the targets** (18 tok/s decode, 500 tok/s prefill; both revised down from 50 / 1,000 after the full-512 ceiling was measured):
 
-- decode >= 18 tok/s: reached on one of the three probe prompts (19.0), **not** on the other two (16.0-16.8); 13.9 at 189K context on the previous config;
-- prefill >= 500 tok/s: **not reached**; best 422 (7.9K, second run), 277-330 at 3.8K, 346-392 at 8-33K, 375-382 at 97-189K;
-- not run: concurrency above 1, GPQA Diamond, tool-calling benchmarks, the 190K needle on the final config.
+- decode >= 18 tok/s: reached on all three probe prompts in the first run (18.2 / 21.4 / 18.1), on one of three in the second (17.9 / 21.3 / 17.7); 13.9 at 189K context on the earlier config;
+- prefill >= 500 tok/s: **not reached**; best 481 (7.9K, warm), 428 cold, 407 at 17.6K, 396 at 33K, 277-334 at 3.8K, 375-382 at 97-189K (earlier config);
+- not run: concurrency above 1, GPQA Diamond, tool-calling benchmarks, the 190K needle on the current config.
 
 ## Run it
 
-You need the hardware below, about 190 GB of free disk on the mini, and a second Apple-silicon Mac with Xcode's Metal toolchain to build two Metal binaries.
+The [One-click](#one-click) flow does all of this; the manual steps below are what `run.sh` and the Docker build automate. You need the hardware below, about 190 GB of free disk on the mini, and a Mac with Xcode's Metal toolchain to build two Metal binaries (the mini's Command Line Tools have none).
 
 | | |
 |---|---|
@@ -51,13 +65,13 @@ You need the hardware below, about 190 GB of free disk on the mini, and a second
 
 ```sh
 git clone https://github.com/Niko1221/Strata ~/strata && git -C ~/strata checkout v0.1.41       # fb58e0dbc839
-for p in patches/strata/0*.patch; do git -C ~/strata apply $PWD/$p; done                        # 4 patches, in order
+for p in patches/strata/0*.patch; do git -C ~/strata apply $PWD/$p; done                        # 5 patches, in order
 zsh shim/install.sh                                                                             # tgcu shim + libcudart.dylib into ~/shim
 cp -R exl3/. ~/exl3/ && cd ~/exl3 && zsh cpu/build.sh                                           # NEON tier
 python pack_td.py index && python pack_td.py sync && python pack_td.py verify                   # 45.8 GB of experts, sha256-verified against the pinned revision
 # libexl3metal (exl3/metal/build.sh) and strata-vision-metal (vision/build_vision_mac.sh) on a Mac with the Metal toolchain; the engine build: docs/reproduce.md section 5
-zsh configs/render.sh configs/strata-exl3-full512-final-g4-lru.json.tmpl > ~/shim/strata-exl3-full512-final-g4-lru.json
-zsh ~/shim/ls_srv.sh ~/shim/strata-exl3-full512-final-g4-lru.json                               # ~200 s to ready (campaign notes), http://127.0.0.1:8080/v1
+zsh configs/render.sh configs/strata-exl3-full512-final-g4-lru-ht.json.tmpl > ~/shim/strata-exl3-full512-final-g4-lru-ht.json
+zsh ~/shim/ls_srv.sh ~/shim/strata-exl3-full512-final-g4-lru-ht.json                            # ~200 s to ready (campaign notes), http://127.0.0.1:8080/v1
 python3 bench/split_probe.py try 300                                                            # decode probe
 ```
 
@@ -95,7 +109,7 @@ Details and the full settings table: [docs/how-it-works.md](docs/how-it-works.md
 
 ## Where the time goes
 
-Decode, ms per verify window, final config, `STRATA_DECODE_TIMING=1` (`results/raw/lru/dd_e7.log`; the same prompts on the config before the LRU change are in docs/results.md section 2):
+Decode, ms per verify window, config `final-g4-lru` (before the host-tail step; the table at the top is after it), `STRATA_DECODE_TIMING=1` (`results/raw/lru/dd_e7.log`; the same prompts on the config before the LRU change are in docs/results.md section 2):
 
 | prompt | tokens/window | ms/window | GPU wait for the ring | cold-expert reads | Metal wait | USB transport (derived) | draft | tok/s |
 |---|---|---|---|---|---|---|---|---|
