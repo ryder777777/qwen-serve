@@ -4,7 +4,7 @@
 # ../build.sh exl3_strata_recon and ../build.sh exl3_strata_pf first.
 set -e
 cd ${0:A:h}
-SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+SDK=${SDK:-/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk}
 host() {  # host() <src> <fatbin> <obj>
   clang++ -x cuda --cuda-host-only --no-offload-new-driver --cuda-path=$HOME/cuda-12.8 -nocudalib -include cuda_runtime.h \
     -include $HOME/shim/tgcuda_launch.h -Xclang -fcuda-include-gpubinary -Xclang $2 -std=c++17 -O2 -fPIC -isystem $HOME/shim/include \

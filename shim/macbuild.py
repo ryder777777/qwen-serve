@@ -20,7 +20,7 @@ TARGETS = args.targets.split()
 SHIM = HOME / "shim"
 CUDA_HOST = HOME / "cuda-12.8"       # headers clang understands
 CUDA_DEV = HOME / "cuda-13.4"
-SDK = "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
+SDK = os.environ.get("SDK", "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk")   # run.sh picks the newest installed 26.x SDK (the 27.0 SDK breaks ld)
 X86 = re.compile(r"^-m(avx\w*|sse\w*|f16c|fma|bmi\w*|lzcnt|popcnt|pclmul|aes|vpclmulqdq|gfni|amx\w*|arch=.*|tune=.*)$")
 
 cmds = Path(args.cmds or LIN / "strata_cmds.txt").read_text().splitlines()
