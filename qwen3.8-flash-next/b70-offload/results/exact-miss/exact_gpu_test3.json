@@ -1,0 +1,580 @@
+{
+ "meta": {
+  "layers": [
+   6,
+   18,
+   30,
+   42
+  ],
+  "slots": 640,
+  "lib": "/x/kernels/moe-a8/_moe_a8x.so"
+ },
+ "t2": {
+  "calls": 2400,
+  "mismatches": 0,
+  "jobs": 706,
+  "keys": 1871,
+  "fallbacks": 0,
+  "slot_audit_bad": 0,
+  "host": {
+   "heartbeat_ns": 212738506007258,
+   "jobs": 706,
+   "keys": 1871,
+   "demand_reads": 1871,
+   "pf_hit_ready": 0,
+   "pf_hit_inflight": 0,
+   "pf_reads": 0,
+   "hints": 0,
+   "hints_dropped": 0,
+   "read_errors": 0,
+   "svc_ns": 250847961,
+   "svc_ns_max": 9405563,
+   "bytes": 3486945280,
+   "eagain": 0,
+   "hints_known": 0,
+   "job_deferred": 0,
+   "stopped": 0
+  },
+  "s": 5.1
+ },
+ "t3": {
+  "cold": 10,
+  "fallbacks": 1,
+  "fallback_keys": 10,
+  "masked_output_ok": true,
+  "masked_ids_all_safe": true,
+  "cold_keys_left_with_slot": 0,
+  "after_resume_exact": true,
+  "slot_audit_bad": 0
+ },
+ "t4": [
+  {
+   "poll_mode": 2,
+   "nmiss": 1,
+   "ms_median": 21.743724,
+   "ms_p90": 22.6139474,
+   "n": 10
+  },
+  {
+   "poll_mode": 2,
+   "nmiss": 2,
+   "ms_median": 21.601301499999998,
+   "ms_p90": 22.1065528,
+   "n": 10
+  },
+  {
+   "poll_mode": 2,
+   "nmiss": 4,
+   "ms_median": 22.0336715,
+   "ms_p90": 22.9992602,
+   "n": 10
+  },
+  {
+   "poll_mode": 2,
+   "nmiss": 10,
+   "ms_median": 22.044584,
+   "ms_p90": 22.9329478,
+   "n": 7
+  },
+  {
+   "poll_mode": 2,
+   "nmiss": 20,
+   "ms_median": 23.803124999999998,
+   "ms_p90": 301.8381666,
+   "n": 3
+  },
+  {
+   "poll_mode": 2,
+   "nmiss": 40,
+   "ms_median": 5.8510409999999995,
+   "ms_p90": 5.8510409999999995,
+   "n": 1
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 1,
+   "ms_median": 0.9322395,
+   "ms_p90": 1.0532184,
+   "n": 8
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 2,
+   "ms_median": 1.062656,
+   "ms_p90": 1.1346559999999999,
+   "n": 7
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 4,
+   "ms_median": 1.2608595,
+   "ms_p90": 1.2662650999999998,
+   "n": 4
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 10,
+   "ms_median": null,
+   "ms_p90": null,
+   "n": 0
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 20,
+   "ms_median": null,
+   "ms_p90": null,
+   "n": 0
+  },
+  {
+   "poll_mode": 3,
+   "nmiss": 40,
+   "ms_median": null,
+   "ms_p90": null,
+   "n": 0
+  }
+ ],
+ "debug": {
+  "t2": {
+   "summary": {
+    "poll_mode": 3,
+    "jobs_logged": 128,
+    "ok": 128,
+    "not_ok": 0,
+    "not_ok_host_answered": 0,
+    "not_ok_host_never_saw_job": 0,
+    "not_ok_last_seen_older_seq": 0,
+    "not_ok_by_n": {},
+    "ok_polls_median": 224.5,
+    "host_us_median": 165.32850000000002,
+    "host_us_max": 1075.119
+   },
+   "last": [
+    {
+     "seq": 699,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 755,
+     "last_seen": 699,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 642.224
+    },
+    {
+     "seq": 700,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 46,
+     "last_seen": 700,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1046.54
+    },
+    {
+     "seq": 701,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 251,
+     "last_seen": 701,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 152.748
+    },
+    {
+     "seq": 702,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 150,
+     "last_seen": 702,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 152.339
+    },
+    {
+     "seq": 703,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 553,
+     "last_seen": 703,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 416.786
+    },
+    {
+     "seq": 704,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 817,
+     "last_seen": 704,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 666.694
+    },
+    {
+     "seq": 705,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 734,
+     "last_seen": 705,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 640.204
+    },
+    {
+     "seq": 706,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 25,
+     "last_seen": 706,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1075.119
+    }
+   ]
+  },
+  "t3": {
+   "summary": {
+    "poll_mode": 3,
+    "jobs_logged": 128,
+    "ok": 127,
+    "not_ok": 1,
+    "not_ok_host_answered": 1,
+    "not_ok_host_never_saw_job": 0,
+    "not_ok_last_seen_older_seq": 1,
+    "not_ok_by_n": {
+     "10": 1
+    },
+    "ok_polls_median": 225.0,
+    "host_us_median": 165.6935,
+    "host_us_max": 10091.787
+   },
+   "last": [
+    {
+     "seq": 701,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 251,
+     "last_seen": 701,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 152.748
+    },
+    {
+     "seq": 702,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 150,
+     "last_seen": 702,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 152.339
+    },
+    {
+     "seq": 703,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 553,
+     "last_seen": 703,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 416.786
+    },
+    {
+     "seq": 704,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 817,
+     "last_seen": 704,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 666.694
+    },
+    {
+     "seq": 705,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 734,
+     "last_seen": 705,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 640.204
+    },
+    {
+     "seq": 706,
+     "n": 1,
+     "outcome": "ok",
+     "polls": 25,
+     "last_seen": 706,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1075.119
+    },
+    {
+     "seq": 707,
+     "n": 10,
+     "outcome": "timeout",
+     "polls": 20000,
+     "last_seen": 705,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 9510.322
+    },
+    {
+     "seq": 708,
+     "n": 10,
+     "outcome": "ok",
+     "polls": 11210,
+     "last_seen": 708,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 10091.787
+    }
+   ]
+  },
+  "t4_mode2": {
+   "summary": {
+    "poll_mode": 2,
+    "jobs_logged": 128,
+    "ok": 98,
+    "not_ok": 30,
+    "not_ok_host_answered": 30,
+    "not_ok_host_never_saw_job": 0,
+    "not_ok_last_seen_older_seq": 30,
+    "not_ok_by_n": {
+     "1": 7,
+     "2": 9,
+     "4": 7,
+     "10": 6,
+     "20": 1
+    },
+    "ok_polls_median": 241.0,
+    "host_us_median": 409.14599999999996,
+    "host_us_max": 10287.625
+   },
+   "last": [
+    {
+     "seq": 742,
+     "n": 10,
+     "outcome": "ok",
+     "polls": 1187,
+     "last_seen": 742,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1307.758
+    },
+    {
+     "seq": 743,
+     "n": 10,
+     "outcome": "timeout",
+     "polls": 20000,
+     "last_seen": 737,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 795.962
+    },
+    {
+     "seq": 744,
+     "n": 10,
+     "outcome": "ok",
+     "polls": 1247,
+     "last_seen": 744,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1260.368
+    },
+    {
+     "seq": 745,
+     "n": 10,
+     "outcome": "timeout",
+     "polls": 20000,
+     "last_seen": 737,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 810.283
+    },
+    {
+     "seq": 746,
+     "n": 20,
+     "outcome": "ok",
+     "polls": 1834,
+     "last_seen": 746,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1903.883
+    },
+    {
+     "seq": 747,
+     "n": 20,
+     "outcome": "timeout",
+     "polls": 20000,
+     "last_seen": 737,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 10287.625
+    },
+    {
+     "seq": 748,
+     "n": 20,
+     "outcome": "ok",
+     "polls": 1639,
+     "last_seen": 748,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 1912.322
+    },
+    {
+     "seq": 749,
+     "n": 40,
+     "outcome": "ok",
+     "polls": 2439,
+     "last_seen": 749,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 2712.065
+    }
+   ]
+  },
+  "t4_mode3": {
+   "summary": {
+    "poll_mode": 3,
+    "jobs_logged": 128,
+    "ok": 98,
+    "not_ok": 30,
+    "not_ok_host_answered": 30,
+    "not_ok_host_never_saw_job": 0,
+    "not_ok_last_seen_older_seq": 30,
+    "not_ok_by_n": {
+     "1": 7,
+     "2": 9,
+     "4": 7,
+     "10": 6,
+     "20": 1
+    },
+    "ok_polls_median": 251.0,
+    "host_us_median": 371.6415,
+    "host_us_max": 10287.625
+   },
+   "last": [
+    {
+     "seq": 761,
+     "n": 2,
+     "outcome": "ok",
+     "polls": 231,
+     "last_seen": 761,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 220.098
+    },
+    {
+     "seq": 762,
+     "n": 2,
+     "outcome": "ok",
+     "polls": 251,
+     "last_seen": 762,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 237.887
+    },
+    {
+     "seq": 763,
+     "n": 2,
+     "outcome": "ok",
+     "polls": 240,
+     "last_seen": 763,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 227.948
+    },
+    {
+     "seq": 764,
+     "n": 2,
+     "outcome": "ok",
+     "polls": 232,
+     "last_seen": 764,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 220.168
+    },
+    {
+     "seq": 765,
+     "n": 4,
+     "outcome": "ok",
+     "polls": 415,
+     "last_seen": 765,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 363.716
+    },
+    {
+     "seq": 766,
+     "n": 4,
+     "outcome": "ok",
+     "polls": 398,
+     "last_seen": 766,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 375.446
+    },
+    {
+     "seq": 767,
+     "n": 4,
+     "outcome": "ok",
+     "polls": 395,
+     "last_seen": 767,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 374.367
+    },
+    {
+     "seq": 768,
+     "n": 4,
+     "outcome": "ok",
+     "polls": 388,
+     "last_seen": 768,
+     "host_seen": true,
+     "host_answered": true,
+     "host_us": 368.916
+    }
+   ]
+  }
+ },
+ "t4_modes": [
+  {
+   "poll_mode": 2,
+   "jobs": 41,
+   "fallbacks": 29,
+   "polls_per_job": 14465.439024390244
+  },
+  {
+   "poll_mode": 3,
+   "jobs": 19,
+   "fallbacks": 0,
+   "polls_per_job": 257.7368421052632
+  }
+ ],
+ "host_final": [
+  212739821320860,
+  768,
+  2169,
+  2169,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  328492683,
+  10287625,
+  4042321920,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ]
+}
