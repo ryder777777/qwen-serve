@@ -72,7 +72,9 @@ class NvTier:
         self.vict = torch.zeros(1 + 2 * self.E, dtype=torch.int32, device=self.dev)
         self.res = np.zeros(n, dtype=np.uint8)                            # host view (refreshed each step)
         self.order = OrderedDict()                                        # RAM-resident keys, oldest first
-        self.pinned = set(li * self.E + safe for li in range(self.L))
+        # layers with no NVMe record (ckpt < 0: the MTP draft's MoE layer) are packed into their RAM pages at load and
+        # pinned there by pin_host_layer(); they never touch the NVMe store
+        self.pinned = set(li * self.E + safe for li in range(self.L) if self.ckpt[li] >= 0)
         self.ring_seen = 0
         self.pending_evict = []                                           # (event, keys) waiting before punch
         self.stats = dict(nvme_reads=0, nvme_ms=0.0, evicts=0, masked=0, steps=0, fill_ms=0.0, ring_overflow=0)
@@ -104,7 +106,23 @@ class NvTier:
         self.stats["nvme_ms"] += (time.perf_counter() - t) * 1e3
 
     def rec_index(self, key):
-        return int(self.ckpt[key // self.E]) * self.E + key % self.E
+        c = int(self.ckpt[key // self.E])
+        assert c >= 0, f"nvtier: key {key} is in a RAM-only layer (no NVMe record)"
+        return c * self.E + key % self.E
+
+    def pin_host_layer(self, li):
+        """A RAM-only layer (ckpt < 0) whose experts were packed straight into their memfd pages: flag every expert
+        resident and pinned (never evicted, never filled from NVMe). Its pages come on top of the RAM budget."""
+        assert 0 <= li < self.L and self.ckpt[li] < 0, (li, self.L)
+        keys = np.arange(li * self.E, (li + 1) * self.E)
+        self.res[keys] = 1
+        self.pinned.update(int(k) for k in keys)
+        for k in keys: self.order[int(k)] = None
+        if hasattr(self, "pin_mask"): self.pin_mask[keys] = True
+        if hasattr(self, "age"): self.age[keys] = 0
+        self.budget += self.E
+        self.res_dev[li * self.E:(li + 1) * self.E].fill_(1)
+        torch.xpu.synchronize()
 
     def _punch(self, key):
         off = key * self.st.stride
@@ -549,7 +567,7 @@ def _stage_setup(self):
                                                                # engine reads anonymous THP memory at 26.7 GB/s (h2d_test)
               NB=NB, cs=torch.xpu.Stream(), comp_ev=[None, None], hfree={}, pending={}, nexth=0,
               pool=ThreadPoolExecutor(int(os.environ.get("EXL3_NVTIER_FILL_THREADS", "32"))),
-              order=[int(li) for li in np.argsort(self.ckpt, kind="stable")], snap=None, snap_dev=None, dbuf=0,
+              order=[int(li) for li in np.argsort(self.ckpt, kind="stable") if self.ckpt[li] >= 0], snap=None, snap_dev=None, dbuf=0,
               ar=torch.arange(E, dtype=torch.int64, device=self.dev) * rec,
               prof=dict(layers=0, wait_ms=0.0, bytes=0, t0=None))
     sg["pos"] = {li: i for i, li in enumerate(sg["order"])}

@@ -138,7 +138,9 @@ def _nvtier_init(store):
     meta = _json.load(open(os.environ.get("EXL3_NVTIER_META", path.rsplit(".", 1)[0] + ".json")))
     budget = float(os.environ.get("EXL3_NVTIER_RAM_GB", "16")) * 2 ** 30
     _cls = NvTierAsync if os.environ.get("EXL3_NVTIER_ASYNC", "0") == "1" else NvTierFast
-    _NVTIER = _cls(store, path, meta, budget, ckpt_layer=list(_NVTIER_LAYERS))
+    # + EXL3_NVTIER_EXTRA_LAYERS RAM-only layers (default 1: the MTP draft's MoE layer, registered after the target)
+    extra = int(os.environ.get("EXL3_NVTIER_EXTRA_LAYERS", "1"))
+    _NVTIER = _cls(store, path, meta, budget, ckpt_layer=list(_NVTIER_LAYERS) + [-1] * extra)
     # N104: every prefill batch (rows >= 3) goes to the DPAS prefill kernel - it reads RAM-tier (SVM) pages at link
     # speed, while the GEMV path run non-cached over many rows is ~100x slower on SVM memory (test_pf.py)
     store.X.moe_set_prefill_min_m(int(os.environ.get("EXL3_NVTIER_PREFILL_M", "3")))
@@ -480,8 +482,16 @@ def _build_classes():
             if _NVTIER_ON:
                 # tier mode: weights come from the packed NVMe store; nothing is packed into host RAM at load
                 if self.key.startswith("mtp."):
-                    raise NotImplementedError("exl3xpu: NVMe tier does not cover the MTP layer (run without MTP)")
-                if self.key not in store.layer_index:
+                    # the MTP draft's MoE layer has no NVMe record: pack its experts straight into their RAM-tier pages
+                    # (pinned by pin_host_layer() once the layer is complete)
+                    if self.key not in store.layer_index:
+                        store.add_layer(self.key)
+                    import ctypes as _ct
+                    from .moe_offload import pack_expert
+                    a = store.addr(store.layer_index[self.key] * store.E + e)
+                    out = torch.frombuffer((_ct.c_char * store.blob).from_address(a), dtype=torch.uint8)
+                    pack_expert(st["gate"], st["up"], st["down"], K, out=out)
+                elif self.key not in store.layer_index:
                     import re as _re
                     store.add_layer(self.key)
                     _NVTIER_LAYERS.append(int(_re.search(r"layers\.(\d+)\.", self.prefix + ".").group(1)))
@@ -524,6 +534,11 @@ def _build_classes():
             layer.exl3_moe_store = store
             if _NVTIER_ON and _NVTIER is None and len(_NVTIER_LAYERS) == int(os.environ.get("EXL3_NVTIER_LAYERS", "48")):
                 _nvtier_init(store)          # before graph capture: captured kernels bake in the tier tensors
+            if _NVTIER_ON and self.key.startswith("mtp."):
+                if _NVTIER is None:
+                    raise RuntimeError("exl3xpu: MTP layer loaded before the NVMe tier was set up")
+                _NVTIER.pin_host_layer(store.layer_index[self.key])
+                logger.info("exl3xpu: %s: %d MTP experts pinned in the RAM tier (no NVMe record)", self.prefix, n)
             logger.info("exl3xpu: %s: %d experts K=%d packed to host USM (%.3f GB), %d resident in device slots "
                         "(%d slots free)", self.prefix, n, layer.exl3_K, n * store.blob / 1e9,
                         store.resident_count(self.key), len(store.free_slots))
@@ -541,7 +556,8 @@ def _build_classes():
             # (zero pages: wrong outputs and runaway shmem). Not just the >= _STAGE_MIN_M streaming threshold.
             if _NVTIER is not None and flat.shape[0] >= int(os.environ.get("EXL3_NVTIER_PREFILL_M", "3")) \
                     and not torch.xpu.is_current_stream_capturing():
-                if os.environ.get("EXL3_NVTIER_STAGE", "0") == "1" and flat.shape[0] >= int(os.environ.get("EXL3_NVTIER_STAGE_M", "256")):
+                if os.environ.get("EXL3_NVTIER_STAGE", "0") == "1" and flat.shape[0] >= int(os.environ.get("EXL3_NVTIER_STAGE_M", "256")) \
+                        and not self.key.startswith("mtp."):
                     # d1b4: big prefill batch -> NVMe -> pinned host -> copy engine -> VRAM staging (no SVM first touch)
                     y = _NVTIER.stage_forward(store, self.key, store.layer_index[self.key], flat,
                                               tk.topk_ids.reshape(flat.shape[0], -1), tk.topk_weights.reshape(flat.shape[0], -1))
@@ -653,6 +669,76 @@ def _patch_mtp() -> None:
 
     cls.__init__, cls.load_weights, cls._exl3_patched = __init__, load_weights, True
     cls.set_lm_head_from_target = set_lm_head_from_target
+
+
+class _Exl3Dense3D(torch.nn.Module):
+    """Wraps an Exl3Dense so it accepts [..., in] (Qwen4-Exp's MTP applies fc_hidden to a [N, hc_count, H] view)."""
+
+    def __init__(self, dense):
+        super().__init__()
+        self.inner = dense
+        self.in_features, self.out_features = dense.in_features, dense.out_features
+
+    def forward(self, x):
+        y = self.inner(x.reshape(-1, x.shape[-1]))
+        return y.view(*x.shape[:-1], y.shape[-1])
+
+
+def _patch_qwen4_mtp() -> None:
+    """Qwen4-Exp (Flash-Next) MTP draft (from qwen-serve N113). Its __init__ does not run Qwen3.5's (patched by
+    _patch_mtp), so: serve `mtp.fc_embedding` / `mtp.fc_hidden` / `mtp.fc` (EXL3 in the checkpoint, plain nn.Linear
+    upstream) as EXL3 linears, and drop the draft's own bf16 embed_tokens at construction: the EAGLE worker shares
+    the target's."""
+    try:
+        from sglang.srt.models import qwen4_exp_mtp as m
+    except Exception as e:  # pragma: no cover
+        logger.warning("exl3xpu: Qwen4-Exp MTP shim not installed (%s)", e)
+        return
+    cls = m.Qwen4ExpForCausalLMMTP
+    if cls.__dict__.get("_exl3_patched", False):      # not inherited from the Qwen3.5 class _patch_mtp marks
+        return
+    orig_init = cls.__init__
+    orig_load = cls.load_weights
+
+    def __init__(self, config, quant_config=None, prefix="", *a, **k):
+        orig_init(self, config, quant_config, prefix, *a, **k)
+        Cfg, _, Dense = classes()
+        qc = getattr(self, "quant_config", quant_config)
+        if not isinstance(qc, Cfg):
+            return
+        emb = self.model.embed_tokens
+        w = emb.weight
+        emb.weight = torch.nn.Parameter(torch.empty((0, w.shape[1]), dtype=w.dtype, device=w.device), requires_grad=False)
+        for name, val in vars(w).items():
+            if name != "data" and not hasattr(emb.weight, name):
+                setattr(emb.weight, name, val)
+        self._exl3_skip_embed = True
+        del w
+        _empty_cache()
+        self._exl3_dense = []
+        for attr in ("fc_embedding", "fc_hidden", "fc"):
+            lin = getattr(self, attr, None)
+            info = qc.modules.get(f"mtp.{attr}")
+            if info is None or not isinstance(lin, torch.nn.Linear):
+                continue
+            setattr(self, attr, Dense(lin.in_features, lin.out_features, info, f"mtp.{attr}", params_dtype=lin.weight.dtype))
+            self._exl3_dense.append(attr)
+            logger.info("exl3xpu: Qwen4-Exp MTP %s served as an EXL3 linear %s", attr, info)
+
+    def load_weights(self, weights, *a, **k):
+        if getattr(self, "_exl3_skip_embed", False):
+            weights = ((n, w) for n, w in weights if not n.endswith("embed_tokens.weight"))
+        out = orig_load(self, weights, *a, **k)
+        for attr in getattr(self, "_exl3_dense", []):
+            d = getattr(self, attr)
+            if hasattr(d, "exl3_shards"):
+                d.process_weights_after_loading()
+            if getattr(d, "exl3_empty", False):
+                raise RuntimeError(f"exl3xpu: Qwen4-Exp MTP {attr}: no EXL3 tensors loaded")
+            setattr(self, attr, _Exl3Dense3D(d))
+        return out
+
+    cls.__init__, cls.load_weights, cls._exl3_patched = __init__, load_weights, True
 
 
 class _DraftHeadMethod:
@@ -1309,6 +1395,7 @@ def activate() -> None:
     except ImportError as e:  # pragma: no cover - SGLang without qwen4_exp / qwen3_vl
         logger.info("exl3xpu: vision shim not installed (%s)", e)
     _patch_mtp()
+    _patch_qwen4_mtp()
     _patch_xpu_spec_sampling()
     _patch_xpu_gdn_verify()
     _patch_xpu_mamba_scatter()
