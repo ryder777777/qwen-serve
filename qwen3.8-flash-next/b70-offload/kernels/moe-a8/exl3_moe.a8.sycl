@@ -29,6 +29,11 @@
 #include <atomic>
 #include <thread>
 #include <memory>
+#ifdef EXL3_EXACT_MISS
+#include "exact_miss.h"     // exact decode miss path: protocol layout + host service (docs/exact-miss.md)
+#include <sycl/ext/intel/experimental/cache_control_properties.hpp>   // uncached read hints (poll mode 3)
+#include <sycl/ext/oneapi/experimental/annotated_ptr/annotated_ptr.hpp>
+#endif
 
 using namespace exl3;
 using bf16 = sycl::ext::oneapi::bfloat16;
@@ -786,6 +791,93 @@ void moe_set_tier(at::Tensor ram_res, at::Tensor miss, at::Tensor safe) {
     g_ram_res = ram_res.data_ptr<uint8_t>(); g_miss = miss.data_ptr<int>(); g_miss_cap = (int)miss.numel() - 1;
     g_safe = safe.data_ptr<int>();
 }
+#ifdef EXL3_EXACT_MISS
+// Exact decode miss path (docs/exact-miss.md). With the tier on (moe_set_tier) and these set, a pick in neither VRAM
+// nor RAM is NOT masked: ensure publishes the missed keys as a job in the USM host control region, a 1-work-item wait
+// kernel spins (bounded) until the host service has read them from NVMe into stage pages, patches ptrs_all to those
+// pages, and the GEMV writes them through into the VRAM slots ensure assigned. Set before graph capture: the captured
+// kernels bake in these pointers. Timeout / read error -> those picks are masked (a6 behaviour, logged to the miss
+// ring) and their slot assignment is rolled back.
+static uint8_t* g_xctl = nullptr;      // USM host, exact::CTL_BYTES
+static int64_t* g_xdev = nullptr;      // device int64 [exact::X_SIZE]
+static int g_xjobs = 2, g_xkmax = 40;
+static int64_t g_xspin = 20000;        // wait-kernel polls before giving up (one PCIe read each, ~1 us)
+static std::unique_ptr<exact::ExactSvc> g_xsvc;
+void moe_exact_setup(at::Tensor ctl, at::Tensor xdev, int64_t jobs, int64_t kmax, int64_t spin_iters) {
+    if (!ctl.numel()) { g_xctl = nullptr; g_xdev = nullptr; return; }
+    TORCH_CHECK(!g_xsvc, "exact: stop the service before changing the setup");
+    TORCH_CHECK(ctl.device().is_cpu() && ctl.scalar_type() == at::kByte && ctl.numel() >= exact::CTL_BYTES,
+                "exact: ctl must be a host_alloc() uint8 tensor of >= ", exact::CTL_BYTES, " bytes");
+    TORCH_CHECK(xdev.device().is_xpu() && xdev.scalar_type() == at::kLong && xdev.numel() >= exact::X_SIZE,
+                "exact: xdev must be an XPU int64 tensor of >= ", exact::X_SIZE);
+    TORCH_CHECK(jobs >= 1 && jobs <= exact::JMAX && kmax >= 1 && kmax <= exact::KMAX && spin_iters > 0, "exact: limits");
+    auto& q = queue_of(xdev);
+    TORCH_CHECK(sycl::get_pointer_type(ctl.data_ptr(), q.get_context()) == sycl::usm::alloc::host,
+                "exact: ctl is not USM host memory (use host_alloc)");
+    g_xctl = ctl.data_ptr<uint8_t>(); g_xdev = xdev.data_ptr<int64_t>();
+    g_xjobs = (int)jobs; g_xkmax = (int)kmax; g_xspin = spin_iters;
+}
+// Host service thread (no GIL): polls jobs and hints, O_DIRECT reads via Linux AIO into the stage / prefetch pages.
+// stage_base: jobs*kmax pages, pf_base: pf_pages pages, `stride` bytes apart (2 MiB-aligned anonymous memory that the
+// GPU has already touched: moe_svm_prefetch). ckpt: CPU int64 [L] tier layer -> store layer.
+void moe_exact_start(int64_t fd, int64_t rec, at::Tensor ckpt, int64_t n_experts, int64_t stage_base, int64_t pf_base,
+                     int64_t pf_pages, int64_t stride, int64_t spin_us, int64_t sleep_us) {
+    TORCH_CHECK(g_xctl, "exact: moe_exact_setup first");
+    TORCH_CHECK(!g_xsvc, "exact: service already running");
+    exact::SvcCfg c;
+    c.ctl = g_xctl; c.jobs = g_xjobs; c.kmax = g_xkmax; c.fd = (int)fd; c.rec = rec; c.E = (int)n_experts;
+    auto ck = ckpt.to(at::kCPU, at::kLong).contiguous();
+    c.ckpt.assign(ck.data_ptr<int64_t>(), ck.data_ptr<int64_t>() + ck.numel());
+    c.stage = reinterpret_cast<uint8_t*>((uintptr_t)stage_base);
+    c.pf = reinterpret_cast<uint8_t*>((uintptr_t)pf_base); c.pf_pages = (int)pf_pages;
+    c.stride = stride; c.spin_us = (int)spin_us; c.sleep_us = (int)sleep_us;
+    g_xsvc = std::make_unique<exact::ExactSvc>(c);
+}
+std::vector<int64_t> moe_exact_stop() {
+    std::vector<int64_t> r;
+    if (!g_xsvc) return r;
+    g_xsvc->stop();
+    for (int i = 0; i < exact::HSTAT_N; ++i) r.push_back(g_xsvc->stat(i));
+    g_xsvc.reset();
+    return r;
+}
+void moe_exact_pause(int64_t p) { if (g_xsvc) g_xsvc->pause(p != 0); }
+// Next-layer prediction: queue the predicted experts `ids` (int32, any shape) of tier layer `layer` that are in neither
+// VRAM nor RAM as prefetch hints for the host service. One work-item, graph-safe; no effect without the service.
+void moe_exact_hint(at::Tensor ids, at::Tensor slot_of, int64_t layer, int64_t n_experts) {
+    if (!g_xctl || !g_xdev || ids.numel() == 0) return;
+    TORCH_CHECK(ids.scalar_type() == at::kInt && ids.is_contiguous() && slot_of.scalar_type() == at::kInt);
+    auto& q = queue_of(ids);
+    const int n = (int)ids.numel(), E = (int)n_experts, L = (int)layer;
+    const int* id = ids.data_ptr<int>(); const int* so = slot_of.data_ptr<int>();
+    const uint8_t* rr = g_ram_res; uint8_t* xc = g_xctl; int64_t* xd = g_xdev;
+    q.single_task([=]() {
+        int* h = reinterpret_cast<int*>(xc + exact::HINT_OFF);
+        int* ring = h + 16;
+        int64_t cnt = xd[exact::X_HINT_CNT];
+        const int64_t c0 = cnt;
+        for (int p = 0; p < n; ++p) {
+            const int e = id[p];
+            if (e < 0 || e >= E) continue;
+            const int key = L * E + e;
+            if (so[key] >= 0 || (rr && rr[key])) continue;
+            bool dup = false;
+            for (int p2 = 0; p2 < p; ++p2) dup |= id[p2] == e;
+            if (dup) continue;
+            ring[(uint32_t)cnt % exact::HINT_CAP] = key;
+            ++cnt;
+        }
+        xd[exact::X_HINT_CALLS] += 1;
+        if (cnt != c0) {
+            xd[exact::X_HINTS] += cnt - c0;
+            xd[exact::X_HINT_CNT] = cnt;
+            sycl::atomic_fence(sycl::memory_order::release, sycl::memory_scope::system);
+            sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::system,
+                             sycl::access::address_space::global_space>(h[0]).store((int)cnt);
+        }
+    });
+}
+#endif
 void moe_set_prefill_min_m(int64_t v) { g_prefill_min_m = (int)v; }
 constexpr int kPrefillMB = 32;
 
@@ -857,6 +949,11 @@ static void launch_ensure(sycl::queue& q, const int* ids, int npairs, int layer,
     const uint8_t* m_rr = (mask_ids && mask_w) ? g_ram_res : nullptr;
     int* m_ring = g_miss; const int m_cap = g_miss_cap; const int* m_safe = g_safe;
     const uint8_t* v_rr = vict_out ? g_ram_res : nullptr;   // a7: skip write-back of victims whose RAM copy is resident
+#ifdef EXL3_EXACT_MISS
+    uint8_t* x_ctl = m_rr ? g_xctl : nullptr;
+    int64_t* x_dev = g_xdev;
+    const int x_J = g_xjobs, x_K = g_xkmax;
+#endif
     constexpr int WG = 1024;
     // Victim selection = exact LRU by radix select over u = slot_last + 1 (empty slots u = 0, slots touched this tick
     // excluded): four 8-bit histogram passes find the nm-th smallest u (tau, ties needed), one compaction pass takes
@@ -864,6 +961,9 @@ static void launch_ensure(sycl::queue& q, const int* ids, int npairs, int layer,
     q.submit([&](sycl::handler& h) {
         sycl::local_accessor<int, 1> need(sycl::range<1>(E), h), miss(sycl::range<1>(E), h), vict(sycl::range<1>(E), h);
         sycl::local_accessor<int, 1> hist(sycl::range<1>(256), h), sc(sycl::range<1>(8), h);
+#ifdef EXL3_EXACT_MISS
+        sycl::local_accessor<int, 1> xsel(sycl::range<1>(E), h);
+#endif
         h.parallel_for(sycl::nd_range<1>(WG, WG), [=](sycl::nd_item<1> it) {
             int l = it.get_local_id(0);
             auto g = it.get_group();
@@ -900,6 +1000,57 @@ static void launch_ensure(sycl::queue& q, const int* ids, int npairs, int layer,
                 return;
             }
             if (m_rr) {
+#ifdef EXL3_EXACT_MISS
+              if (x_ctl) {
+                // exact: no masking. The distinct experts in neither VRAM nor RAM become one job for the host service
+                // (work-item 0, ascending e, plain stores + system release fence + seq store). Only experts beyond the
+                // job capacity x_K are masked; graph decode (M <= 4, top-10) has at most 40 distinct picks per call.
+                for (int e = l; e < E; e += WG) xsel[e] = 0;
+                sycl::group_barrier(g);
+                for (int i = l; i < npairs; i += WG) {
+                    int key = layer * E + mask_ids[i];
+                    if (slot_of[key] < 0 && !m_rr[key]) xsel[mask_ids[i]] = 1;
+                }
+                sycl::group_barrier(g);
+                if (l == 0) {
+                    const int64_t seq = x_dev[exact::X_SEQ] + 1;
+                    const int j = (int)(seq % x_J);
+                    int* job = reinterpret_cast<int*>(x_ctl + exact::JOB_OFF + j * exact::JOB_BYTES);
+                    int n = 0, over = 0;
+                    for (int e = 0; e < E; ++e) {
+                        if (!xsel[e]) continue;
+                        if (n < x_K) {
+                            job[4 + n] = layer * E + e;
+                            x_dev[exact::X_KEYS + n] = layer * E + e; x_dev[exact::X_ADDR + n] = 0;
+                            ++n;
+                        } else { xsel[e] = 2; ++over; }
+                    }
+                    x_dev[exact::X_N] = n; x_dev[exact::X_J] = j; x_dev[exact::X_LAYER] = layer;
+                    sc[6] = over;
+                    if (over) x_dev[exact::X_OVERFLOW_KEYS] += over;
+                    if (n) {
+                        x_dev[exact::X_SEQ] = seq; x_dev[exact::X_JOBS] += 1; x_dev[exact::X_NKEYS] += n;
+                        job[1] = layer; job[2] = n;
+                        sycl::atomic_fence(sycl::memory_order::release, sycl::memory_scope::system);
+                        sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::system,
+                                         sycl::access::address_space::global_space>(job[0]).store((int)seq);
+                    }
+                }
+                sycl::group_barrier(g);
+                if (sc[6]) {
+                    for (int i = l; i < npairs; i += WG) {
+                        if (xsel[mask_ids[i]] != 2) continue;
+                        int key = layer * E + mask_ids[i];
+                        int c = sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::device,
+                                                 sycl::access::address_space::global_space>(m_ring[0]).fetch_add(1);
+                        m_ring[1 + c % m_cap] = key;
+                        mask_ids[i] = m_safe[layer]; mask_w[i] = 0.0f;
+                    }
+                    sycl::group_barrier(g);
+                }
+              } else
+#endif
+              {
                 // a6: picks whose expert is in neither VRAM nor RAM -> (safe expert, weight 0), key logged to the ring
                 for (int i = l; i < npairs; i += WG) {
                     int key = layer * E + mask_ids[i];
@@ -911,6 +1062,7 @@ static void launch_ensure(sycl::queue& q, const int* ids, int npairs, int layer,
                     }
                 }
                 sycl::group_barrier(g);
+              }
             }
             for (int i = l; i < npairs; i += WG) need[ids[i]] = 1;
             sycl::group_barrier(g);
@@ -1256,8 +1408,124 @@ at::Tensor moe_forward_cached(at::Tensor x, at::Tensor topk_ids, at::Tensor topk
                             g_host_stride ? g_host_stride : (int64_t)gm.blob(), g_ram_res};
         q.submit([&](sycl::handler& h) { h.parallel_for(sycl::nd_range<1>((size_t)mf * chunks * 16, 16), vk); });
     }
+#ifdef EXL3_EXACT_MISS
+    const bool xon = g_xctl && g_xdev && g_ram_res;
+    uint8_t* xc = g_xctl; int64_t* xd = g_xdev;
+    const int64_t* hb = host_base.data_ptr<int64_t>();
+    const int64_t hstr = g_host_stride ? g_host_stride : (int64_t)gm.blob();
+    if (xon) {
+        // wait kernel: one work-item. Returns at once when ensure published no job (n == 0).
+        const int64_t spin = g_xspin;
+        int* ids_p = topk_ids.data_ptr<int>(); float* w_p = topk_w.data_ptr<float>();
+        const int np = M * (int)topk_ids.size(1);
+        int* so = slot_of.data_ptr<int>(); int* sk = slot_key.data_ptr<int>(); int* sl = slot_last.data_ptr<int>();
+        int* mr = g_miss; const int mcap = g_miss_cap; const int* msafe = g_safe;
+        // uncached read hint (L1/L2/L3), the GLM ft_xpu.sycl FTX_POLL=2 pattern: 0 spin timeouts over ~80k layer
+        // calls on this card. Plain or acquire system-scope loads of host USM return a device-cached stale value.
+        namespace ie = sycl::ext::intel::experimental;
+        namespace oe = sycl::ext::oneapi::experimental;
+        using UC = ie::cache_control<ie::cache_mode::uncached, ie::cache_level::L1, ie::cache_level::L2, ie::cache_level::L3>;
+        using UCP = decltype(oe::properties{ie::read_hint<UC>});
+        q.single_task([=]() {
+            const int n = (int)xd[exact::X_N];
+            if (n == 0) return;
+            const int64_t seq = xd[exact::X_SEQ];
+            const int j = (int)xd[exact::X_J], li = (int)xd[exact::X_LAYER];
+            int* done = reinterpret_cast<int*>(xc + exact::DONE_OFF + j * exact::DONE_BYTES);
+            // How the host-written words (done seq, status, page addresses; all in host_alloc USM host memory) are
+            // read (xdev[X_POLL_MODE], set by the host, read every call):
+            //   3 = uncached read hint via annotated_ptr (default; GLM production setting on this card)
+            //   1 = system-scope atomic RMW (fetch_add 0): performed at host memory
+            //   0 = system-scope acquire fence + acquire load (run 2: still stale, 30/41 T4 jobs timed out)
+            //   2 = relaxed load (run 1: stale once the line was cached -> 20 ms timeouts at >= 3-4 misses)
+            const int pm = (int)xd[exact::X_POLL_MODE];
+            // DefaultOrder relaxed (SYCL 2020 allows only relaxed / acq_rel / seq_cst there); orders passed per call
+            using a32 = sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::system,
+                                         sycl::access::address_space::global_space>;
+            using a64 = sycl::atomic_ref<int64_t, sycl::memory_order::relaxed, sycl::memory_scope::system,
+                                         sycl::access::address_space::global_space>;
+            auto rd32 = [pm](int* q) -> int {
+                if (pm == 3) { oe::annotated_ptr<volatile int, UCP> u(q); return u[0]; }
+                if (pm == 1) return a32(*q).fetch_add(0, sycl::memory_order::acq_rel);
+                if (pm == 2) return a32(*q).load();
+                sycl::atomic_fence(sycl::memory_order::acquire, sycl::memory_scope::system);
+                return a32(*q).load(sycl::memory_order::acquire);
+            };
+            auto rd64 = [pm](int64_t* q) -> int64_t {
+                if (pm == 3) { oe::annotated_ptr<volatile int64_t, UCP> u(q); return u[0]; }
+                if (pm == 1) return a64(*q).fetch_add(0, sycl::memory_order::acq_rel);
+                sycl::atomic_fence(sycl::memory_order::acquire, sycl::memory_scope::system);
+                return a64(*q).load(sycl::memory_order::acquire);
+            };
+            bool ok = false;
+            int last = 0;
+            int64_t polls = 0;
+            for (; polls < spin; ++polls) {
+                last = rd32(done);
+                if (last == (int)seq) { ok = true; ++polls; break; }
+            }
+            sycl::atomic_fence(sycl::memory_order::acquire, sycl::memory_scope::system);   // payload after the seq
+            const int status = ok ? rd32(done + 1) : -1;
+            ok = ok && status == 0;
+            xd[exact::X_POLLS] += polls;
+            if (polls > xd[exact::X_POLLS_MAX]) xd[exact::X_POLLS_MAX] = polls;
+            int64_t* lg = xd + exact::X_LOG + (int64_t)((uint32_t)seq % exact::LOG_N) * 4;
+            lg[0] = seq; lg[1] = n | ((int64_t)(ok ? 1 : status > 0 ? 3 : 2) << 16); lg[2] = polls; lg[3] = last;
+            int64_t* ad = reinterpret_cast<int64_t*>(xc + exact::ADDR_OFF) + j * exact::KMAX;
+            if (ok) {
+                for (int i = 0; i < n; ++i) {
+                    const int64_t a = rd64(ad + i);    // fresh read: a cached stale address would be silent corruption
+                    const int key = (int)xd[exact::X_KEYS + i];
+                    xd[exact::X_ADDR + i] = a;
+                    pa[key] = a;                       // GEMV reads the stage page, writes through to the slot
+                }
+                return;
+            }
+            // timeout or read error: mask these picks (exactly the a6 fallback) and undo their slot assignment, so
+            // no slot is ever committed with data that was not read
+            xd[exact::X_TIMEOUTS] += 1; xd[exact::X_TIMEOUT_KEYS] += n;
+            for (int i = 0; i < n; ++i) {
+                const int key = (int)xd[exact::X_KEYS + i], e = key - li * E;
+                xd[exact::X_ADDR + i] = 0;
+                for (int p = 0; p < np; ++p)
+                    if (ids_p[p] == e) { ids_p[p] = msafe[li]; w_p[p] = 0.0f; }
+                int c = sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::device,
+                                         sycl::access::address_space::global_space>(mr[0]).fetch_add(1);
+                mr[1 + c % mcap] = key;
+                const int s = so[key];
+                if (s >= 0 && sk[s] == key) {
+                    sk[s] = -1; sl[s] = -1; so[key] = -1;
+                    fa[key] = hb[li] + (int64_t)e * hstr;   // combine commits the host address, then clears fill
+                }
+            }
+        });
+    }
+    auto out = moe_forward_impl(x, topk_ids, topk_w, nullptr, ptrs_l, I, K, n_experts, fa + layer * E, pa + layer * E,
+                                fa + layer * E, fill_list.data_ptr<int>());
+    if (xon) {
+        // release kernel (after combine): keys that got no VRAM slot point back to their RAM-tier address; rel[j] = seq
+        q.single_task([=]() {
+            const int n = (int)xd[exact::X_N];
+            if (n == 0) return;
+            const int64_t seq = xd[exact::X_SEQ];
+            const int j = (int)xd[exact::X_J], li = (int)xd[exact::X_LAYER];
+            for (int i = 0; i < n; ++i) {
+                const int64_t a = xd[exact::X_ADDR + i];
+                const int key = (int)xd[exact::X_KEYS + i];
+                if (a && pa[key] == a) pa[key] = hb[li] + (int64_t)(key - li * E) * hstr;
+            }
+            xd[exact::X_N] = 0;
+            int* rel = reinterpret_cast<int*>(xc + exact::REL_OFF + j * exact::REL_BYTES);
+            sycl::atomic_fence(sycl::memory_order::release, sycl::memory_scope::system);
+            sycl::atomic_ref<int, sycl::memory_order::relaxed, sycl::memory_scope::system,
+                             sycl::access::address_space::global_space>(rel[0]).store((int)seq);
+        });
+    }
+    return out;
+#else
     return moe_forward_impl(x, topk_ids, topk_w, nullptr, ptrs_l, I, K, n_experts, fa + layer * E, pa + layer * E,
                             fa + layer * E, fill_list.data_ptr<int>());
+#endif
 }
 
 static at::Tensor moe_forward_impl(at::Tensor x, at::Tensor topk_ids, at::Tensor topk_w, const int64_t* pp_override,
@@ -1589,4 +1857,13 @@ TORCH_LIBRARY(exl3xpu_moe, m) {
     m.def("moe_set_tier(Tensor ram_res, Tensor miss, Tensor safe) -> ()", &moe::moe_set_tier);
     m.def("moe_set_host_stride(int s) -> ()", &moe::moe_set_host_stride);
     m.def("moe_svm_prefetch(Tensor ptrs, int nbytes, Tensor like) -> ()", &moe::moe_svm_prefetch);
+#ifdef EXL3_EXACT_MISS
+    m.def("moe_exact_setup(Tensor ctl, Tensor xdev, int jobs, int kmax, int spin_iters) -> ()", &moe::moe_exact_setup);
+    m.def("moe_exact_start(int fd, int rec, Tensor ckpt, int n_experts, int stage_base, int pf_base, int pf_pages, "
+          "int stride, int spin_us, int sleep_us) -> ()", &moe::moe_exact_start);
+    m.def("moe_exact_stop() -> int[]", &moe::moe_exact_stop);
+    m.def("moe_exact_pause(int p) -> ()", &moe::moe_exact_pause);
+    m.def("moe_exact_hint(Tensor ids, Tensor slot_of, int layer, int n_experts) -> ()");
+    m.impl("moe_exact_hint", torch::kXPU, &moe::moe_exact_hint);
+#endif
 }

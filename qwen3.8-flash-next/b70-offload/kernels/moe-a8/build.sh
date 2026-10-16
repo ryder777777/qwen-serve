@@ -3,13 +3,17 @@
 # cache, RAM-tier residency flags + miss ring, victim write-back, staged prefill copy, SVM prefetch). Source:
 # exl3_moe.a8.sycl (trellis-serve exl3_moe.sycl + a2..a8). Runs inside the sglang-exl3-xpu-flashnext image (oneAPI icpx,
 # torch XPU); no GPU needed. Device code is spir64 (JIT on first launch), the flags the campaign used for _moe_a8.so.
+# MOE_EXACT=1: also compile the exact decode miss path (-DEXL3_EXACT_MISS, exact_miss.h, docs/exact-miss.md) into
+# _moe_a8x.so. Without it the build is the unchanged a8 library.
 source /opt/intel/oneapi/setvars.sh --force >/dev/null 2>&1 || true
 set -euo pipefail
 cd "$(dirname "$0")"
-OUT=${MOE_OUT:-_moe_a8.so}
+DEFS=""
+if [ "${MOE_EXACT:-0}" = "1" ]; then DEFS="-DEXL3_EXACT_MISS"; fi
+OUT=${MOE_OUT:-$([ -n "$DEFS" ] && echo _moe_a8x.so || echo _moe_a8.so)}
 T=$(python3 -c "import torch, os; print(os.path.dirname(torch.__file__))")
 icpx -fsycl -fsycl-targets=spir64 -O3 -ffast-math -fPIC -std=c++17 -shared -fsycl-device-code-split=per_kernel \
-  -D_GLIBCXX_USE_CXX11_ABI=1 -I . -I"$T/include" -I"$T/include/torch/csrc/api/include" \
+  -D_GLIBCXX_USE_CXX11_ABI=1 $DEFS -I . -I"$T/include" -I"$T/include/torch/csrc/api/include" \
   -x c++ exl3_moe.a8.sycl -x none -o "$OUT.tmp" \
   -L"$T/lib" -Wl,-rpath,"$T/lib" -lc10 -ltorch -ltorch_cpu -lc10_xpu -ltorch_xpu
 mv -f "$OUT.tmp" "$OUT"

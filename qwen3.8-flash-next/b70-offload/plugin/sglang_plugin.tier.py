@@ -128,6 +128,7 @@ if _STAGE_MIN_M <= 0:
 _NVTIER_ON = os.environ.get("EXL3_NVTIER", "0") == "1"      # N104 NVMe tier (VRAM slots / RAM memfd THP / NVMe store)
 _NVTIER = None
 _NVTIER_LAYERS: list = []                                      # registration order -> checkpoint layer number
+_EXACT = None                                                  # exact decode miss path (EXL3_EXACT_MISS=1, exact_miss.py)
 
 
 def _nvtier_init(store):
@@ -149,6 +150,11 @@ def _nvtier_init(store):
         n, dt = _NVTIER.warm(_json.load(open(prior))["keys"], budget * float(os.environ.get("EXL3_NVTIER_WARM_FRAC", "0.9")))
         logger.info("exl3xpu: NVMe tier warm-up: %d experts (%.1f GB) from the prior in %.1f s", n, n * 2 / 1024, dt)
     logger.info("exl3xpu: NVMe tier on: %d layers, RAM budget %.1f GB, store %s", len(_NVTIER_LAYERS), budget / 2 ** 30, path)
+    if os.environ.get("EXL3_EXACT_MISS", "0") == "1":
+        # exact decode misses (docs/exact-miss.md): after the warm-up, before graph capture (kernels bake in the setup)
+        global _EXACT
+        from .exact_miss import ExactMiss
+        _EXACT = ExactMiss(_NVTIER, store)
 
 
 def _moe_store(H: int, I: int, K: int, n_experts: int):
@@ -573,6 +579,9 @@ def _build_classes():
             else:
                 store.prefill_reset()
                 fwd = store.forward_cached if _MOE_CACHE else store.forward
+                if _EXACT is not None and _EXACT.predict and not self.key.startswith("mtp.") and self.key in store.layer_index:
+                    # next-layer prediction: hints for layer L+ahead before this layer's MoE (and its wait) is queued
+                    _EXACT.hint_next(store.layer_index[self.key], flat)
             y = fwd(self.key, flat, tk.topk_ids.reshape(flat.shape[0], -1), tk.topk_weights.reshape(flat.shape[0], -1))
             return StandardCombineInput(hidden_states=y.view_as(x))
 
@@ -1036,10 +1045,29 @@ def _patch_nvtier_step() -> None:
         out = orig(self, *a, **k)
         if _NVTIER is not None and not torch.xpu.is_current_stream_capturing():
             _NVTIER.step()
-            _NVTIER.log_stats(logger, int(os.environ.get("EXL3_NVTIER_LOG_EVERY", "200")))
+            every = int(os.environ.get("EXL3_NVTIER_LOG_EVERY", "200"))
+            _NVTIER.log_stats(logger, every)
+            if _EXACT is not None and _NVTIER.stats["steps"] % every == 0:
+                _EXACT.log_stats(logger, every)
         return out
     mr.ModelRunner.forward = forward
     logger.info("exl3xpu: NVMe tier step hook installed on ModelRunner.forward")
+
+
+def _patch_exact_gates() -> None:
+    """EXL3_EXACT_MISS + EXL3_EXACT_PREDICT: register the target model's router gates for next-layer prediction right
+    after load_model (before graph capture). The draft (MTP) runner is skipped."""
+    from sglang.srt.model_executor import model_runner as mr
+    orig = mr.ModelRunner.load_model
+
+    def load_model(self, *a, **k):
+        r = orig(self, *a, **k)
+        if _EXACT is not None and _EXACT.predict and not getattr(self, "is_draft_worker", False):
+            if _EXACT.register_gates(self.model) == 0:
+                logger.warning("exl3xpu: exact prediction on but no router gates found: prediction stays off")
+        return r
+
+    mr.ModelRunner.load_model = load_model
 
 
 def _patch_xpu_graph_warm_replay() -> None:
@@ -1409,6 +1437,8 @@ def activate() -> None:
     _patch_step_timing()
     if _NVTIER_ON:
         _patch_nvtier_step()
+        if os.environ.get("EXL3_EXACT_MISS", "0") == "1":
+            _patch_exact_gates()
     frac = os.environ.get("EXL3_TORCH_MEM_FRACTION")
     if frac:
         # cap the torch caching allocator so the Level Zero driver keeps room for its own allocations (kernel scratch

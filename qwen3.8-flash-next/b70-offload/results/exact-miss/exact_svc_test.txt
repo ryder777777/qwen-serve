@@ -1,0 +1,6 @@
+store /tmp/store.bin, O_DIRECT yes
+jobs 3651 ok 3631 timeouts 20 (unexpected 0) keys checked 22809 bad pages 0
+wait per served job: mean 78.5 us, max 6429.0 us
+host: jobs 3632 keys 22810 demand 16648 pf_ready 5123 pf_inflight 1039 pf_reads 6350 hints 7015 dropped 11 known 654 read_err 0 eagain 0 svc_max 5227.9 us stopped 1
+host job log mismatches 0
+PASS
