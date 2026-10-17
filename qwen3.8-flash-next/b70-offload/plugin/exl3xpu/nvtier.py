@@ -54,8 +54,13 @@ class TierStore(ExpertStore):
 
 
 class NvTier:
-    def __init__(self, store: TierStore, nvme_path, meta, ram_budget_bytes, ring_cap=1 << 16, safe=0, dev=None, ckpt_layer=None):
+    def __init__(self, store: TierStore, nvme_path, meta, ram_budget_bytes, ring_cap=1 << 16, safe=0, dev=None, ckpt_layer=None,
+                 standalone=()):
         self.st, self.E = store, store.E
+        # standalone tier layers: NVMe-backed layers that are not part of the target model's forward (the MTP draft's
+        # MoE layer stored as store layer 48). Ordinary tier layers in every respect, except that staged prefill gives
+        # them their own snapshot + read instead of the target's layer-ahead read pipeline.
+        self.standalone = set(int(li) for li in standalone)
         self.L = len(ckpt_layer) if ckpt_layer is not None else store.L
         self.ckpt = np.asarray(ckpt_layer if ckpt_layer is not None else range(self.L), dtype=np.int64)   # li -> NVMe layer
         self.dev = dev or store.dev
@@ -72,8 +77,9 @@ class NvTier:
         self.vict = torch.zeros(1 + 2 * self.E, dtype=torch.int32, device=self.dev)
         self.res = np.zeros(n, dtype=np.uint8)                            # host view (refreshed each step)
         self.order = OrderedDict()                                        # RAM-resident keys, oldest first
-        # layers with no NVMe record (ckpt < 0: the MTP draft's MoE layer) are packed into their RAM pages at load and
-        # pinned there by pin_host_layer(); they never touch the NVMe store
+        # layers with no NVMe record (ckpt < 0: the MTP draft's MoE layer with a 48-layer store) are packed into their
+        # RAM pages at load and pinned there by pin_host_layer(); they never touch the NVMe store. With a 49-layer store
+        # the MTP layer has ckpt 48 and is an ordinary layer here: only its safe expert is pinned.
         self.pinned = set(li * self.E + safe for li in range(self.L) if self.ckpt[li] >= 0)
         self.ring_seen = 0
         self.pending_evict = []                                           # (event, keys) waiting before punch
@@ -567,7 +573,8 @@ def _stage_setup(self):
                                                                # engine reads anonymous THP memory at 26.7 GB/s (h2d_test)
               NB=NB, cs=torch.xpu.Stream(), comp_ev=[None, None], hfree={}, pending={}, nexth=0,
               pool=ThreadPoolExecutor(int(os.environ.get("EXL3_NVTIER_FILL_THREADS", "32"))),
-              order=[int(li) for li in np.argsort(self.ckpt, kind="stable") if self.ckpt[li] >= 0], snap=None, snap_dev=None, dbuf=0,
+              order=[int(li) for li in np.argsort(self.ckpt, kind="stable")
+                     if self.ckpt[li] >= 0 and int(li) not in getattr(self, "standalone", ())], snap=None, snap_dev=None, dbuf=0,
               ar=torch.arange(E, dtype=torch.int64, device=self.dev) * rec,
               prof=dict(layers=0, wait_ms=0.0, bytes=0, t0=None))
     sg["pos"] = {li: i for i, li in enumerate(sg["order"])}
@@ -592,8 +599,22 @@ def _stage_kick(self, li, _buf=None):
 def _stage_forward(self, store, key, li, x, ids, w):
     if not hasattr(self, "_sg"): self._stage_setup()
     sg = self._sg; E, rec = self.E, self.rec
-    pos = sg["pos"][li]; order = sg["order"]; D = sg["NB"] - 1
-    if pos == 0 or li not in sg["pending"]:
+    order = sg["order"]; D = sg["NB"] - 1
+    alone = li not in sg["pos"]
+    pos = None if alone else sg["pos"][li]
+    if alone:
+        # a standalone layer (the MTP draft's MoE layer, NVMe store layer 48): not part of the target's layer-ahead
+        # pipeline. Own sync + snapshot + read; a fresh snapshot also serves the next target forward's restart check.
+        if not (0 <= li < self.L and self.ckpt[li] >= 0):
+            raise RuntimeError(f"nvtier: stage_forward on layer {li} without an NVMe record (ckpt {self.ckpt[li] if li < self.L else '?'})")
+        torch.xpu.synchronize()
+        for _, _, fs in sg["pending"].values():   # normally empty here (the target forward consumed its read-ahead)
+            for f in fs: f.result()
+        sg["pending"].clear()                     # a target layer not in pending restarts its forward with a fresh snapshot
+        sg["snap_dev"] = store.slot_of_dev[: self.L * E].to(torch.int64).clone()
+        sg["snap"] = sg["snap_dev"].cpu().numpy()
+        self._stage_kick(li)
+    elif pos == 0 or li not in sg["pending"]:
         # first MoE layer of a prefill forward: one sync per forward - VRAM cache may have moved (decode graph replays)
         torch.xpu.synchronize()
         sg["snap_dev"] = store.slot_of_dev[: self.L * E].to(torch.int64).clone()
@@ -608,7 +629,7 @@ def _stage_forward(self, store, key, li, x, ids, w):
     t = time.perf_counter()
     for f in futs: f.result()
     sg["prof"]["wait_ms"] += (time.perf_counter() - t) * 1e3
-    TP = os.environ.get("EXL3_NVTIER_STAGE_PROF", "0") == "1"
+    TP = os.environ.get("EXL3_NVTIER_STAGE_PROF", "0") == "1" and not alone
     mk = (lambda: torch.xpu.Event(enable_timing=True)) if TP else None
     buf = sg["dbuf"]; sg["dbuf"] = 1 - buf
     cs, cur = sg["cs"], torch.xpu.current_stream()
@@ -634,6 +655,8 @@ def _stage_forward(self, store, key, li, x, ids, w):
     ce = torch.xpu.Event(enable_timing=TP); ce.record(cur); sg["comp_ev"][buf] = ce
     if TP: sg.setdefault("tev", []).append((h0, ev, c0, c1, ce, len(miss)))
     sg["prof"]["layers"] += 1; sg["prof"]["bytes"] += len(miss) * rec
+    if alone:
+        return y
     nq = pos + 1 + D
     if nq < len(order) and order[nq] not in sg["pending"]:
         self._stage_kick(order[nq])
