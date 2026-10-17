@@ -20,14 +20,14 @@ Full tables, NVMe and memory numbers, and the quality method: [docs/results.md](
 
 ## Run it
 
-**Docker.** Needs one Arc Pro B70 with the `xe` driver, `hf`, 80 GB for the checkpoint, and 45.8 GB for the expert
+**Docker.** Needs one Arc Pro B70 with the `xe` driver, `hf`, 80 GB for the checkpoint, and 46.8 GB for the expert
 store on a local NVMe filesystem that supports `O_DIRECT` (xfs or ext4).
 
 ```bash
 IMG=ghcr.io/sybil-solutions/qwen38-flash-next-b70-offload@sha256:d30df691d6ab890b95f7c6179e4b677a0d759018e39b20e93bf0efdb8780450c
 M=turboderp-Qwen3.8-Flash-Next-exl3-3.05bpw_h5_ng5
 hf download turboderp/Qwen3.8-Flash-Next-exl3 --revision 69e33439ae950f17bcbe95c98f117d80f759ab6d --local-dir /data/$M
-docker run --rm -v /data/$M:/models/$M:ro -v /mnt/nvme/qwen-b70:/nvx "$IMG" pack-store    # once: 45.8 GB store
+docker run --rm -v /data/$M:/models/$M:ro -v /mnt/nvme/qwen-b70:/nvx "$IMG" pack-store    # once: 46.8 GB store (49 layers)
 R=$(readlink -f /dev/dri/by-path/pci-0000:48:00.0-render)   # your B70's render node (lspci | grep B70)
 docker run -d --name qwen-b70 --device $R --memory 16g --memory-swap 16g --shm-size 8g --ulimit memlock=-1 \
   -e QWEN_B70_MODE=nvme16 -p 127.0.0.1:30000:30000 -v /data/$M:/models/$M:ro -v /mnt/nvme/qwen-b70:/nvx:ro "$IMG" \
@@ -37,6 +37,12 @@ docker run -d --name qwen-b70 --device $R --memory 16g --memory-swap 16g --shm-s
   --max-running-requests 4 --dtype bfloat16 --max-mamba-cache-size 32 --cuda-graph-backend-decode full \
   --cuda-graph-bs-decode 1 2 4 --reasoning-parser qwen3 --tool-call-parser qwen3_coder
 ```
+
+The store holds the 48 target MoE layers and, as store layer 48, the MTP draft's MoE layer (`mtp.layers.0`, 512
+experts, meta `L=49`, `mtp_layers=[48]`). With it the draft's experts are an ordinary NVMe tier layer: only their safe
+expert is pinned in RAM, everything else is read on demand like any other layer. A store packed before this change
+(meta `L=48`) still works and keeps the old behaviour (all 512 MTP experts packed into RAM at load, ~0.95 GB).
+Running `pack-store` again on such a store only appends layer 48 (~1 GB of writes); `verify-store` checks it.
 
 Image: [local-ai-images `qwen38-flash-next-b70-offload`](https://github.com/sybil-solutions/local-ai-images/tree/main/qwen38-flash-next-b70-offload),
 built and attested by CI from commit 2f108fb. Measured on this digest at 16 GiB: 8k C1 29.3 / C2 39.3 / C4 49.2 tok/s,

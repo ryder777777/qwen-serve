@@ -131,23 +131,62 @@ _NVTIER_LAYERS: list = []                                      # registration or
 _EXACT = None                                                  # exact decode miss path (EXL3_EXACT_MISS=1, exact_miss.py)
 
 
+_STORE_META = None
+
+
+def _store_meta() -> dict:
+    global _STORE_META
+    if _STORE_META is None:
+        path = os.environ["EXL3_NVTIER_STORE"]
+        _STORE_META = json.load(open(os.environ.get("EXL3_NVTIER_META", path.rsplit(".", 1)[0] + ".json")))
+    return _STORE_META
+
+
+def _mtp_store_layers(n_target: int) -> list:
+    """Store layers that hold the MTP draft's MoE layer(s): meta `mtp_layers` (serve/pack_store.py), else every store
+    layer beyond the target's (meta L > n_target). [] for a 48-layer store: the MTP layer then stays RAM-pinned."""
+    m = _store_meta()
+    if "mtp_layers" in m:
+        return [int(c) for c in m["mtp_layers"]]
+    return list(range(n_target, int(m.get("L", n_target))))
+
+
+def _extra_on_nvme(li: int) -> bool:
+    """Tier layer li (an extra layer registered after the target's, i.e. the MTP draft's MoE layer) has an NVMe record."""
+    if _NVTIER is not None and 0 <= li < _NVTIER.L:
+        return bool(_NVTIER.ckpt[li] >= 0)
+    n_target = int(os.environ.get("EXL3_NVTIER_LAYERS", "48"))
+    extra = int(os.environ.get("EXL3_NVTIER_EXTRA_LAYERS", "1"))
+    return 0 <= li - n_target < min(extra, len(_mtp_store_layers(n_target)))
+
+
 def _nvtier_init(store):
     global _NVTIER
-    import json as _json
     from .nvtier import NvTierFast, NvTierAsync
     path = os.environ["EXL3_NVTIER_STORE"]
-    meta = _json.load(open(os.environ.get("EXL3_NVTIER_META", path.rsplit(".", 1)[0] + ".json")))
+    meta = _store_meta()
     budget = float(os.environ.get("EXL3_NVTIER_RAM_GB", "16")) * 2 ** 30
     _cls = NvTierAsync if os.environ.get("EXL3_NVTIER_ASYNC", "0") == "1" else NvTierFast
-    # + EXL3_NVTIER_EXTRA_LAYERS RAM-only layers (default 1: the MTP draft's MoE layer, registered after the target)
+    # + EXL3_NVTIER_EXTRA_LAYERS layers registered after the target (default 1: the MTP draft's MoE layer). With a
+    # 49-layer store (pack_store.py: MTP experts = store layer 48) it is an ordinary NVMe layer (ckpt 48, only its safe
+    # expert pinned); with a 48-layer store it is RAM-only (ckpt -1, packed into its memfd pages, pin_host_layer).
     extra = int(os.environ.get("EXL3_NVTIER_EXTRA_LAYERS", "1"))
-    _NVTIER = _cls(store, path, meta, budget, ckpt_layer=list(_NVTIER_LAYERS) + [-1] * extra)
+    n_target = len(_NVTIER_LAYERS)
+    mtp = _mtp_store_layers(n_target)[:extra]
+    if mtp and (max(mtp) >= int(meta["L"]) or set(mtp) & set(_NVTIER_LAYERS)):
+        raise RuntimeError(f"exl3xpu: store meta: MTP layers {mtp} vs L={meta['L']} and target layers {sorted(_NVTIER_LAYERS)[:3]}...")
+    _NVTIER = _cls(store, path, meta, budget, ckpt_layer=list(_NVTIER_LAYERS) + mtp + [-1] * (extra - len(mtp)),
+                   standalone=range(n_target, n_target + len(mtp)))
+    if extra:
+        logger.info("exl3xpu: NVMe tier: %d extra (MTP) layer(s): %s", extra,
+                    ", ".join(f"tier layer {n_target + i} -> " + (f"NVMe store layer {mtp[i]}" if i < len(mtp) else "RAM-pinned (no store record)")
+                              for i in range(extra)))
     # N104: every prefill batch (rows >= 3) goes to the DPAS prefill kernel - it reads RAM-tier (SVM) pages at link
     # speed, while the GEMV path run non-cached over many rows is ~100x slower on SVM memory (test_pf.py)
     store.X.moe_set_prefill_min_m(int(os.environ.get("EXL3_NVTIER_PREFILL_M", "3")))
     prior = os.environ.get("EXL3_NVTIER_PRIOR")
     if prior:
-        n, dt = _NVTIER.warm(_json.load(open(prior))["keys"], budget * float(os.environ.get("EXL3_NVTIER_WARM_FRAC", "0.9")))
+        n, dt = _NVTIER.warm(json.load(open(prior))["keys"], budget * float(os.environ.get("EXL3_NVTIER_WARM_FRAC", "0.9")))
         logger.info("exl3xpu: NVMe tier warm-up: %d experts (%.1f GB) from the prior in %.1f s", n, n * 2 / 1024, dt)
     logger.info("exl3xpu: NVMe tier on: %d layers, RAM budget %.1f GB, store %s", len(_NVTIER_LAYERS), budget / 2 ** 30, path)
     if os.environ.get("EXL3_EXACT_MISS", "0") == "1":
@@ -488,15 +527,18 @@ def _build_classes():
             if _NVTIER_ON:
                 # tier mode: weights come from the packed NVMe store; nothing is packed into host RAM at load
                 if self.key.startswith("mtp."):
-                    # the MTP draft's MoE layer has no NVMe record: pack its experts straight into their RAM-tier pages
-                    # (pinned by pin_host_layer() once the layer is complete)
                     if self.key not in store.layer_index:
                         store.add_layer(self.key)
-                    import ctypes as _ct
-                    from .moe_offload import pack_expert
-                    a = store.addr(store.layer_index[self.key] * store.E + e)
-                    out = torch.frombuffer((_ct.c_char * store.blob).from_address(a), dtype=torch.uint8)
-                    pack_expert(st["gate"], st["up"], st["down"], K, out=out)
+                    if _extra_on_nvme(store.layer_index[self.key]):
+                        pass        # 49-layer store: the MTP experts are NVMe store layer 48, nothing to pack
+                    else:
+                        # 48-layer store: no NVMe record - pack the experts straight into their RAM-tier pages
+                        # (pinned by pin_host_layer() once the layer is complete)
+                        import ctypes as _ct
+                        from .moe_offload import pack_expert
+                        a = store.addr(store.layer_index[self.key] * store.E + e)
+                        out = torch.frombuffer((_ct.c_char * store.blob).from_address(a), dtype=torch.uint8)
+                        pack_expert(st["gate"], st["up"], st["down"], K, out=out)
                 elif self.key not in store.layer_index:
                     import re as _re
                     store.add_layer(self.key)
@@ -543,8 +585,16 @@ def _build_classes():
             if _NVTIER_ON and self.key.startswith("mtp."):
                 if _NVTIER is None:
                     raise RuntimeError("exl3xpu: MTP layer loaded before the NVMe tier was set up")
-                _NVTIER.pin_host_layer(store.layer_index[self.key])
-                logger.info("exl3xpu: %s: %d MTP experts pinned in the RAM tier (no NVMe record)", self.prefix, n)
+                li = store.layer_index[self.key]
+                if not len(_NVTIER_LAYERS) <= li < _NVTIER.L:
+                    raise RuntimeError(f"exl3xpu: {self.prefix}: tier layer {li} outside the extra layers "
+                                       f"[{len(_NVTIER_LAYERS)}, {_NVTIER.L}) (EXL3_NVTIER_EXTRA_LAYERS)")
+                if _NVTIER.ckpt[li] >= 0:
+                    logger.info("exl3xpu: %s: %d MTP experts served from NVMe store layer %d (ordinary tier layer)",
+                                self.prefix, n, int(_NVTIER.ckpt[li]))
+                else:
+                    _NVTIER.pin_host_layer(li)
+                    logger.info("exl3xpu: %s: %d MTP experts pinned in the RAM tier (no NVMe record)", self.prefix, n)
             logger.info("exl3xpu: %s: %d experts K=%d packed to host USM (%.3f GB), %d resident in device slots "
                         "(%d slots free)", self.prefix, n, layer.exl3_K, n * store.blob / 1e9,
                         store.resident_count(self.key), len(store.free_slots))
@@ -563,7 +613,7 @@ def _build_classes():
             if _NVTIER is not None and flat.shape[0] >= int(os.environ.get("EXL3_NVTIER_PREFILL_M", "3")) \
                     and not torch.xpu.is_current_stream_capturing():
                 if os.environ.get("EXL3_NVTIER_STAGE", "0") == "1" and flat.shape[0] >= int(os.environ.get("EXL3_NVTIER_STAGE_M", "256")) \
-                        and not self.key.startswith("mtp."):
+                        and (not self.key.startswith("mtp.") or _extra_on_nvme(store.layer_index[self.key])):
                     # d1b4: big prefill batch -> NVMe -> pinned host -> copy engine -> VRAM staging (no SVM first touch)
                     y = _NVTIER.stage_forward(store, self.key, store.layer_index[self.key], flat,
                                               tk.topk_ids.reshape(flat.shape[0], -1), tk.topk_weights.reshape(flat.shape[0], -1))
